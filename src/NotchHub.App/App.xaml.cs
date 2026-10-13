@@ -17,6 +17,8 @@ namespace NotchHub.App;
 ///   --screenshot &lt;dir&gt;    render every state to PNGs (use with --demo) and exit
 ///   --state collapsed|peek|expanded, --tab &lt;name&gt;   initial state / tab
 ///   --verbose             debug logging
+///   --cycle-tabs          diagnostics: after start, open every tab once, then collapse (memory measurements)
+///   --idle-release &lt;s&gt;    diagnostics: release hidden tab views after s seconds instead of 2 minutes
 /// </summary>
 public partial class App : Application
 {
@@ -34,6 +36,7 @@ public partial class App : Application
     private string? _chargeDevice;
     private bool? _chargeLast;
     private string? _callKey;
+    private bool? _autostartApplied;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -91,7 +94,11 @@ public partial class App : Application
 
         _window = new NotchWindow(settings) { ScreenshotMode = screenshot };
         AppServices.Shell = _window;
-        if (!screenshot) _trimmer = new MemoryTrimmer(_window, Dispatcher);
+        if (!screenshot)
+        {
+            TimeSpan? releaseAfter = int.TryParse(ArgValue(args, "--idle-release"), out var sec) && sec > 0 ? TimeSpan.FromSeconds(sec) : null;
+            _trimmer = new MemoryTrimmer(_window, Dispatcher, releaseAfter);
+        }
         MainWindow = _window;
 
         if (screenshot) await StartServicesAsync(); // views should see started services in the shots
@@ -121,6 +128,24 @@ public partial class App : Application
         await StartServicesAsync();
         UpdateFullscreen();
         _window.UpdatePhoneChip();
+        if (args.Contains("--cycle-tabs")) await CycleTabsAsync();
+    }
+
+    /// <summary>Diagnostics (--cycle-tabs): shows every tab once without activating the window, then collapses.</summary>
+    private async Task CycleTabsAsync()
+    {
+        var w = _window!;
+        await Task.Delay(1500);
+        w.Expand(NotchWindow.StripTabs[0], activate: false);
+        foreach (var tab in NotchWindow.StripTabs.Append(ShellTab.Settings))
+        {
+            w.SelectTab(tab);
+            await Task.Delay(1500);
+        }
+        w.SelectTab(NotchWindow.StripTabs[0]);
+        await Task.Delay(500);
+        w.Collapse();
+        Log.Info("cycle-tabs: done");
     }
 
     private async Task StartServicesAsync()
@@ -215,12 +240,7 @@ public partial class App : Application
         Motion.ReduceMotion = s.Appearance.ReduceMotion;
         Motion.Profile = ProfileOf(s.Appearance.AnimationStyle);
 
-        Log.Safe("Autostart", () =>
-        {
-            var autostart = AppServices.Autostart;
-            if (autostart is not null && autostart.IsEnabled != s.General.StartWithWindows && !autostart.SetEnabled(s.General.StartWithWindows))
-                Log.Warn("Autostart change failed");
-        });
+        Log.Safe("Autostart", () => ApplyAutostart(s));
 
         Log.Safe("Hotkeys", () =>
         {
@@ -239,6 +259,29 @@ public partial class App : Application
         });
 
         ApplyAppBar(s);
+    }
+
+    /// <summary>
+    /// The Run key (and the Task Manager "Startup apps" toggle) is the source of truth: on the first pass the setting is
+    /// reconciled from the registry (installer choice, Task Manager choice) without writing it; afterwards the registry
+    /// is only written when the setting itself changes (the user flipped the toggle), never just because they differ.
+    /// </summary>
+    private void ApplyAutostart(AppSettings s)
+    {
+        var autostart = AppServices.Autostart;
+        if (autostart is null) return;
+        var wanted = s.General.StartWithWindows;
+        if (_autostartApplied is null)
+        {
+            var live = autostart.IsEnabled;
+            _autostartApplied = live;
+            if (live != wanted) AppServices.Settings.Update(x => x.General.StartWithWindows = live);
+            return;
+        }
+        if (wanted == _autostartApplied) return;
+        _autostartApplied = wanted;
+        if (autostart.IsEnabled == wanted) return;
+        if (!autostart.SetEnabled(wanted)) Log.Warn("Autostart change failed");
     }
 
     private static MotionProfile ProfileOf(AnimationStyle style) => style switch
@@ -260,8 +303,8 @@ public partial class App : Application
         };
         var state = (n.ReserveScreenSpace, height, n.MonitorIndex);
         if (_appBar is null || _appBarState == state) return;
-        _appBarState = state;
-        _appBar.Update(state.ReserveScreenSpace, height, n.MonitorIndex);
+        // cache only on success: a failed ABM_NEW (taskbar not up yet at logon) is retried on the next call / TaskbarCreated
+        _appBarState = _appBar.Update(state.ReserveScreenSpace, height, n.MonitorIndex) ? state : null;
     });
 
     /// <summary>Phone charging HUD (charging flips while connected) and call status HUD (ringing stays while it rings). UI thread.</summary>
@@ -344,6 +387,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        Log.Safe("Save last tab", () => _window?.FlushLastTab());
         Log.Safe("Mods shutdown", NotchHub.UI.Modding.ModLoader.ShutdownAll);
         Cleanup();
         _cts?.Cancel();

@@ -6,20 +6,26 @@ using NotchHub.UI.Animation;
 
 namespace NotchHub.Features.Controls;
 
-public partial class ControlsView : UserControl, ITabView
+public partial class ControlsView : UserControl, ITabView, IDisposable
 {
+    private readonly ViewLifetime _life;
+
     public ControlsView()
     {
         InitializeComponent();
         DataContext = new ControlsViewModel();
         // SheetContent is not guaranteed to inherit the DataContext — set it explicitly.
         SheetRoot.DataContext = DataContext;
+        _life = new ViewLifetime(this, ViewModel.OnShown, ViewModel.OnHidden, ViewModel.Release);
     }
 
     public ControlsViewModel ViewModel => (ControlsViewModel)DataContext;
 
-    public void OnShown() => ViewModel.OnShown();
-    public void OnHidden() => ViewModel.OnHidden();
+    public void OnShown() => _life.Show();
+    public void OnHidden() => _life.Hide();
+
+    /// <summary>Called by the shell when it throws a long-hidden view away; a new view is created when the tab opens again.</summary>
+    public void Dispose() => _life.Dispose();
 
     private void OnVolumeDragStarted(object sender, RoutedEventArgs e) => ViewModel.IsDraggingVolume = true;
     private void OnVolumeDragCompleted(object sender, RoutedEventArgs e) => ViewModel.IsDraggingVolume = false;

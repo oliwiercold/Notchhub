@@ -21,6 +21,10 @@ public partial class NotchWindow
     private string _key = nameof(ShellTab.Controls);
     private readonly Dictionary<MeasureHost, LayerMotion> _tabMotion = new();
     private readonly List<string> _modKeys = new();
+    /// <summary>Last moment each tab was on screen (Environment.TickCount64); drives <see cref="ReleaseIdleTabs"/>.</summary>
+    private readonly Dictionary<string, long> _tabLastSeen = new();
+    /// <summary>LastTab waiting to be persisted (written when the panel closes, not on every switch).</summary>
+    private string? _pendingLastTab;
 
     public NotchWindow() : this(AppServices.Settings) { }
 
@@ -227,6 +231,7 @@ public partial class NotchWindow
 
         if (oldHost is not null && oldHost != newHost)
         {
+            _tabLastSeen[prev] = Environment.TickCount64;
             if (visible && _tabShown && oldHost.Child is ITabView ov) Log.Safe("OnHidden tab", ov.OnHidden);
             var om = _tabMotion[oldHost];
             _key = key;                                    // so the old host is no longer "wanted" when it settles
@@ -259,10 +264,73 @@ public partial class NotchWindow
         else _tabShown = false;
 
         UpdateTabVisuals(instant: !visible);
-        if (_settings.Current.Notch.RememberLastTab && key != TabKey(ShellTab.Settings) && !key.StartsWith(ModPrefix, StringComparison.Ordinal) &&
-            !string.Equals(_settings.Current.Notch.LastTab, key, StringComparison.Ordinal) && !ScreenshotMode)
-            _settings.Update(s => s.Notch.LastTab = key);
+        // remembered in memory only; persisted once when the panel closes (no settings.json write + Changed fan-out per switch)
+        if (key != TabKey(ShellTab.Settings) && !key.StartsWith(ModPrefix, StringComparison.Ordinal) && !ScreenshotMode)
+            _pendingLastTab = key;
         if (visible) ApplyGeometry();
+    }
+
+    /// <summary>Persists the remembered tab if it changed. UI thread; called when the panel closes and on exit.</summary>
+    internal void FlushLastTab()
+    {
+        var key = _pendingLastTab;
+        _pendingLastTab = null;
+        if (key is null || !_settings.Current.Notch.RememberLastTab) return;
+        if (string.Equals(_settings.Current.Notch.LastTab, key, StringComparison.Ordinal)) return;
+        _settings.Update(s => s.Notch.LastTab = key);
+    }
+
+    /// <summary>Called when the panel stops being expanded: the active tab was last seen now.</summary>
+    private void OnPanelClosed()
+    {
+        _tabLastSeen[_key] = Environment.TickCount64;
+        Dispatcher.BeginInvoke(() => Log.Safe("Save last tab", FlushLastTab), DispatcherPriority.ApplicationIdle);
+    }
+
+    /// <summary>
+    /// Idle memory: drops tab views (and with them their view models, bindings, visuals and cached images) that have not
+    /// been on screen for <paramref name="hiddenFor"/> while the panel is closed. They are re-created lazily on the next
+    /// visit. The active tab is kept so the next open is instant; mod tabs, Settings and Power are kept because their
+    /// view models stay subscribed to app-lifetime events (they would leak instead of being freed). Returns how many
+    /// views were released. UI thread.
+    /// </summary>
+    internal int ReleaseIdleTabs(TimeSpan hiddenFor)
+    {
+        if (_state == ShellState.Expanded || ScreenshotMode) return 0;
+        var now = Environment.TickCount64;
+        var released = 0;
+        foreach (var (key, host) in _tabs.ToList())
+        {
+            if (key == _key || !CanRelease(key, host)) continue;
+            if (!_tabLastSeen.TryGetValue(key, out var seen)) { _tabLastSeen[key] = now; continue; }
+            if (now - seen < hiddenFor.TotalMilliseconds) continue;
+
+            var view = host.Child;
+            _tabs.Remove(key);
+            _tabMotion.Remove(host);
+            _tabLastSeen.Remove(key);
+            TabStage.Children.Remove(host);
+            host.Child = null;
+            Log.Safe($"Release {key} view", () =>
+            {
+                var vm = (view as FrameworkElement)?.DataContext;
+                if (view is IDisposable dv) dv.Dispose();
+                if (vm is IDisposable dvm && !ReferenceEquals(vm, view)) dvm.Dispose();
+            });
+            released++;
+        }
+        if (released > 0) Log.Debug($"Released {released} idle tab view(s)");
+        return released;
+    }
+
+    private bool CanRelease(string key, MeasureHost host)
+    {
+        if (key.StartsWith(ModPrefix, StringComparison.Ordinal)) return false;
+        if (key is nameof(ShellTab.Settings) or nameof(ShellTab.Power)) return false;
+        if (host.Visibility == Visibility.Visible) return false;
+        if (_tabMotion.TryGetValue(host, out var m) && (m.Alpha.IsAnimating || m.X.IsAnimating)) return false;
+        // keep a half-written draft (Today's add-event sheet stays open across visits)
+        return (host.Child as FrameworkElement)?.DataContext is not { } vm || !ReadBool(vm, "IsEventSheetOpen");
     }
 
     private int Order(string key)

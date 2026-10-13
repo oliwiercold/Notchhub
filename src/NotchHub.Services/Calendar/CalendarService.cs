@@ -1,3 +1,4 @@
+using System.Net.NetworkInformation;
 using Ical.Net;
 using Ical.Net.DataTypes;
 using NotchHub.Core;
@@ -35,6 +36,7 @@ public sealed partial class CalendarService : ICalendarService
     private readonly Dictionary<string, RemoteSource> _remote = new(StringComparer.Ordinal);
     private IReadOnlyList<CalendarSourceInfo> _sources = [];
     private string? _subscriptionsKey;
+    private DateTimeOffset _lastRefresh = DateTimeOffset.MinValue; // wall clock of the last completed refresh
     private bool _started;
     private bool _disposed;
 
@@ -71,6 +73,7 @@ public sealed partial class CalendarService : ICalendarService
             _started = true;
         }
         _settings.Changed += OnSettingsChanged;
+        NetworkChange.NetworkAvailabilityChanged += OnNetworkAvailabilityChanged;
         // Pick up settings changed between construction and start.
         SyncSubscriptions();
         SyncGoogleSettings();
@@ -156,13 +159,31 @@ public sealed partial class CalendarService : ICalendarService
             while (!ct.IsCancellationRequested)
             {
                 await RefreshCoreAsync(ct).ConfigureAwait(false);
-                var minutes = Math.Max(5, _settings.Current.Calendar?.RefreshMinutes ?? 15);
-                await _wake.WaitAsync(TimeSpan.FromMinutes(minutes), _time, ct).ConfigureAwait(false);
+                // Wait until the refresh is due by the wall clock. Single waits are capped because timers do not advance
+                // while the PC sleeps; a wake-up (settings / network change) refreshes right away.
+                while (true)
+                {
+                    var minutes = Math.Max(5, _settings.Current.Calendar?.RefreshMinutes ?? 15);
+                    DateTimeOffset last;
+                    lock (_gate) last = _lastRefresh;
+                    var due = TimeSpan.FromMinutes(minutes) - (_time.GetUtcNow() - last);
+                    if (due <= TimeSpan.Zero) break;
+                    if (await _wake.WaitAsync(due < MaxSleep ? due : MaxSleep, _time, ct).ConfigureAwait(false)) break;
+                }
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
         }
+    }
+
+    /// <summary>Longest single wait of the refresh loop (sleep time is not counted by timers).</summary>
+    private static readonly TimeSpan MaxSleep = TimeSpan.FromMinutes(5);
+
+    /// <summary>Connectivity is back (e.g. after resume): refresh now instead of after the full interval.</summary>
+    private void OnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
+    {
+        if (e.IsAvailable) _wake.Set();
     }
 
     private void OnSettingsChanged(object? sender, EventArgs e)
@@ -237,7 +258,11 @@ public sealed partial class CalendarService : ICalendarService
             lock (_gate) sources = _remote.Values.Where(s => s.Enabled).ToList();
             await Task.WhenAll(sources.Select(s => RefreshSourceAsync(s, ct)).Append(RefreshGoogleAsync(ct))).ConfigureAwait(false);
             ct.ThrowIfCancellationRequested();
-            lock (_gate) RebuildSources();
+            lock (_gate)
+            {
+                _lastRefresh = _time.GetUtcNow();
+                RebuildSources();
+            }
             RaiseChanged();
         }
         finally
@@ -423,6 +448,7 @@ public sealed partial class CalendarService : ICalendarService
             _disposed = true;
         }
         _settings.Changed -= OnSettingsChanged;
+        NetworkChange.NetworkAvailabilityChanged -= OnNetworkAvailabilityChanged;
         _cts.Cancel();
         try { _connectCts?.Cancel(); } catch (ObjectDisposedException) { }
         _localWriter.Flush();

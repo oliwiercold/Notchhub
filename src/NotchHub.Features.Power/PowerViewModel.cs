@@ -48,7 +48,6 @@ public sealed partial class PowerViewModel : ObservableObject
         var power = AppServices.Power;
         Tiles = new(all.Where(t => power is null || SafeSupported(power, t.Action)));
         _timer.Tick += (_, _) => Tick();
-        NotchHub.UI.Localization.Loc.LanguageChanged += (_, _) => { foreach (var t in Tiles) t.RefreshLabel(); };
     }
 
     public ObservableCollection<PowerTile> Tiles { get; }
@@ -112,6 +111,23 @@ public sealed partial class PowerViewModel : ObservableObject
         _armed = null;
     }
 
-    public void OnShown() { }
-    public void OnHidden() => Disarm();
+    // Loc.LanguageChanged is a static event: subscribe only while shown so a released view is not kept alive by it.
+    public void OnShown()
+    {
+        NotchHub.UI.Localization.Loc.LanguageChanged -= OnLanguageChanged;
+        NotchHub.UI.Localization.Loc.LanguageChanged += OnLanguageChanged;
+        RefreshLabels();
+    }
+
+    public void OnHidden()
+    {
+        NotchHub.UI.Localization.Loc.LanguageChanged -= OnLanguageChanged;
+        Disarm();
+    }
+
+    /// <summary>Final release when the shell throws the view away.</summary>
+    public void Release() => OnHidden();
+
+    private void OnLanguageChanged(object? sender, EventArgs e) => RefreshLabels();
+    private void RefreshLabels() { foreach (var t in Tiles) t.RefreshLabel(); }
 }

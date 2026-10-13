@@ -7,10 +7,13 @@ namespace NotchHub.Services.Todos;
 /// <summary>
 /// To-do list persisted in todos.json. Order: active items (user order, new ones appended), then completed ones
 /// (most recently completed first). Items completed before today (local time) are removed at load and at every
-/// local midnight.
+/// local midnight. The midnight timer is re-armed at least every <see cref="MaxTimerDue"/> and compares dates, because
+/// timers do not advance while the PC sleeps (a single long timer would fire hours late after a night of sleep).
 /// </summary>
 public sealed class TodoService : ITodoService
 {
+    private static readonly TimeSpan MaxTimerDue = TimeSpan.FromMinutes(10);
+
     private readonly TimeProvider _time;
     private readonly DebouncedJsonWriter<TodoFile> _writer;
     private readonly object _gate = new();
@@ -106,6 +109,7 @@ public sealed class TodoService : ITodoService
             var midnight = now.Date.AddDays(1);
             var due = new DateTimeOffset(midnight, _time.LocalTimeZone.GetUtcOffset(midnight)) - now;
             due = due <= TimeSpan.Zero ? TimeSpan.FromMinutes(1) : due + TimeSpan.FromSeconds(2);
+            if (due > MaxTimerDue) due = MaxTimerDue; // RemoveExpired is a cheap no-op until the date changes
             _midnightTimer?.Dispose();
             _midnightTimer = _time.CreateTimer(static s => ((TodoService)s!).OnMidnight(), this, due, Timeout.InfiniteTimeSpan);
         }

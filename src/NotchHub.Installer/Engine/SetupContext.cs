@@ -16,6 +16,7 @@ namespace NotchHub.Installer.Engine;
 ///   --page options|options-end|done   (testing) open a page directly; "done" runs the install / uninstall at once
 ///   --auto-close &lt;sec&gt;     (testing) exit after the given number of seconds
 ///   --remove-data          (uninstall) preselect "also remove my data"
+///   --no-launch            preselect "launch after install" off
 /// </remarks>
 public sealed class SetupContext
 {
@@ -31,6 +32,8 @@ public sealed class SetupContext
     public string? StartPage { get; private init; }
     public double AutoCloseSeconds { get; private init; }
     public bool RemoveDataPreset { get; private init; }
+    /// <summary>--no-launch: preselect "launch after install" off (also keeps the "Gotowe!" card open for screenshots).</summary>
+    public bool NoLaunchPreset { get; private init; }
 
     /// <summary>Version of the embedded app (= this setup's assembly version, both come from Directory.Build.props).</summary>
     public string Version { get; } = VersionOf(Assembly.GetExecutingAssembly());
@@ -63,6 +66,7 @@ public sealed class SetupContext
         {
             Uninstall = Has("--uninstall"),
             RemoveDataPreset = Has("--remove-data"),
+            NoLaunchPreset = Has("--no-launch"),
             DryRun = dry,
             TargetOverride = string.IsNullOrWhiteSpace(target) ? null : Path.GetFullPath(target),
             DataDir = string.IsNullOrWhiteSpace(data)

@@ -52,7 +52,26 @@ public sealed partial class ClipboardViewModel : ObservableObject
     partial void OnQueryChanged(string value)
     {
         _normalizedQuery = ClipEntry.Normalize(value.Trim());
-        if (_shown) Rebuild();
+        if (!_shown) return;
+        // First keystroke: build the (bounded) search keys off the UI thread, then filter.
+        if (_normalizedQuery.Length > 0 && _cache.Values.Any(e => !e.HasSearchKey)) WarmKeysThenRebuild();
+        else Rebuild();
+    }
+
+    private Task? _warming;
+
+    private void WarmKeysThenRebuild()
+    {
+        if (_warming is { IsCompleted: false }) return; // the pending warm-up rebuilds with the latest query
+        var entries = _cache.Values.ToArray();
+        _warming = Task.Run(() => { foreach (var e in entries) e.EnsureSearchKey(); });
+        _warming.ContinueWith(_ => AppServices.Ui.Post(() => { if (_shown) Rebuild(); }), TaskScheduler.Default);
+    }
+
+    partial void OnCurrentChanged(ClipEntry? oldValue, ClipEntry? newValue)
+    {
+        // keep only the current item's large preview decode alive
+        if (oldValue is not null && !ReferenceEquals(oldValue, newValue)) oldValue.ReleasePreview();
     }
 
     partial void OnFilterChanged(ClipFilter value)
@@ -84,6 +103,24 @@ public sealed partial class ClipboardViewModel : ObservableObject
         if (AppServices.Clipboard is { } svc) svc.Changed -= OnServiceChanged;
         Loc.LanguageChanged -= OnLanguageChanged;
         ConfirmingClear = false;
+        // release heavy data while hidden: preview bitmaps and normalized search copies
+        foreach (var e in _cache.Values)
+        {
+            e.ReleasePreview();
+            e.ReleaseSearchKey();
+        }
+        ImageLoader.ClearPreviews();
+    }
+
+    /// <summary>Final release when the shell throws the view away (a new view may be created later).</summary>
+    public void Release()
+    {
+        OnHidden();
+        Current = null;
+        _cache.Clear();
+        _selectedIds = new();
+        Entries.ReplaceAll(Array.Empty<ClipEntry>());
+        ImageLoader.ClearAll();
     }
 
     private void OnServiceChanged(object? sender, EventArgs e) => AppServices.Ui.Post(() => { if (_shown) Rebuild(); });

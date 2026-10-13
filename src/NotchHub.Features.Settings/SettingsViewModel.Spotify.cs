@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NotchHub.Core;
@@ -10,7 +9,6 @@ namespace NotchHub.Features.Settings;
 /// <summary>General section — Spotify card (own client id, PKCE sign-in, status, how-to).</summary>
 public sealed partial class SettingsViewModel
 {
-    private const string SpotifyDashboardUrl = "https://developer.spotify.com/dashboard";
     /// <summary>Must equal SpotifyAuth.RedirectUri in NotchHub.Platform.Media (fixed loopback port; Spotify requires an exact match).</summary>
     public const string SpotifyRedirect = "http://127.0.0.1:43819/callback";
 
@@ -23,7 +21,6 @@ public sealed partial class SettingsViewModel
     [ObservableProperty] private bool _canConnectSpotify;
     [ObservableProperty] private bool _canEditSpotifyClient = true;
     [ObservableProperty] private bool _spotifyHelpOpen;
-    [ObservableProperty] private bool _spotifyRedirectCopied;
 
     private void LoadSpotify()
     {
@@ -99,22 +96,4 @@ public sealed partial class SettingsViewModel
     }
 
     [RelayCommand] private void ToggleSpotifyHelp() => SpotifyHelpOpen = !SpotifyHelpOpen;
-
-    [RelayCommand]
-    private void CopySpotifyRedirect()
-    {
-        try
-        {
-            System.Windows.Clipboard.SetText(SpotifyRedirect);
-            SpotifyRedirectCopied = true;
-        }
-        catch (Exception ex) { Log.Warn("Settings: copying the redirect URI failed", ex); }
-    }
-
-    [RelayCommand]
-    private static void OpenSpotifyDashboard()
-    {
-        try { using (Process.Start(new ProcessStartInfo(SpotifyDashboardUrl) { UseShellExecute = true })) { } }
-        catch (Exception ex) { Log.Warn("Settings: could not open the Spotify dashboard", ex); }
-    }
 }

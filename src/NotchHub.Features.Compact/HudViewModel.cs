@@ -295,6 +295,16 @@ public sealed partial class HudViewModel : ObservableObject
 
     public void OnShown() { _shown = true; UpdateCallStatus(); UpdateCallTimer(); }
 
+    /// <summary>Final release when the shell throws the view away.</summary>
+    public void Release()
+    {
+        OnHidden();
+        _callTick.Stop();
+        _call = null;
+        CallPhoto = null;
+        NotificationIcon = null;
+    }
+
     public void OnHidden()
     {
         _shown = false;

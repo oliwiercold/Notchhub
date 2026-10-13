@@ -8,9 +8,15 @@
     <!-- lightweight runtime profile for an always-running utility -->
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
-    <TieredPGO>true</TieredPGO>
+    <!-- PGO instrumentation keeps extra JIT data/code resident; off measured ~1 MB lower private working set when idle -->
+    <TieredPGO>false</TieredPGO>
+    <!-- ReadyToRun was measured for the single-file Release publish: no lower private memory, so it stays off -->
     <SatelliteResourceLanguages>en;pl</SatelliteResourceLanguages>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- favour a compact heap over throughput (compacts gen2/LOH earlier when fragmented; matters for a resident app) -->
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NotchHub.Core\NotchHub.Core.csproj" />
     <ProjectReference Include="..\NotchHub.UI\NotchHub.UI.csproj" />

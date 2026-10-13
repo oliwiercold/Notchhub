@@ -1,4 +1,4 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
     <sys:String x:Key="setup.title.install">Install NotchHub?</sys:String>
@@ -49,6 +49,8 @@
     <sys:String x:Key="setup.opt.clipboardDesc">Remember copied text and images</sys:String>
     <sys:String x:Key="setup.opt.meeting">Meeting bar</sys:String>
     <sys:String x:Key="setup.opt.meetingDesc">Countdown to the next event in the notch</sys:String>
+    <sys:String x:Key="setup.opt.hotkeys">Keyboard shortcuts</sys:String>
+    <sys:String x:Key="setup.opt.hotkeysDesc">Ctrl+Alt+Space opens the panel, Ctrl+Alt+V the clipboard</sys:String>
     <sys:String x:Key="setup.opt.mods">Example widgets</sys:String>
     <sys:String x:Key="setup.opt.modsDesc">NBP exchange rates and system info</sys:String>
     <sys:String x:Key="setup.opt.install">INSTALLATION</sys:String>
@@ -72,7 +74,7 @@
     <sys:String x:Key="setup.step.done">Done</sys:String>
     <sys:String x:Key="setup.done.title">All set!</sys:String>
     <sys:String x:Key="setup.done.sub">Move the pointer to the top edge of the screen to open NotchHub.</sys:String>
-    <sys:String x:Key="setup.done.subLaunched">NotchHub is running - move the pointer to the top edge of the screen.</sys:String>
+    <sys:String x:Key="setup.done.subLaunch">NotchHub starts in a moment - move the pointer to the top edge of the screen.</sys:String>
     <sys:String x:Key="setup.done.uninstall">NotchHub has been uninstalled</sys:String>
     <sys:String x:Key="setup.done.uninstallSub">Thanks for using NotchHub.</sys:String>
     <sys:String x:Key="setup.running.title">NotchHub is running</sys:String>

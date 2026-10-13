@@ -51,6 +51,8 @@ public sealed partial class TodayViewModel : ObservableObject
         RefreshTodos();
         RefreshTimer();
         ArmClock();
+        // Re-take the shell hold if the add-event sheet (draft kept) is still open from the last visit.
+        if (IsEventSheetOpen) _sheetHold ??= AppServices.Shell?.HoldOpen();
     }
 
     public void OnHidden()
@@ -69,6 +71,19 @@ public sealed partial class TodayViewModel : ObservableObject
         }
         TimerIsWavy = false;
         IsDayExpanded = false; // reopen on the compact next-event card
+        // A hidden tab must never keep the panel open: drop the sheet's hold (the draft stays and the hold returns in OnShown).
+        _sheetHold?.Dispose();
+        _sheetHold = null;
+    }
+
+    /// <summary>Final release when the shell throws the view away (it may be recreated later).</summary>
+    public void Release()
+    {
+        OnHidden();
+        IsEventSheetOpen = false;
+        _sheetHold?.Dispose();
+        _sheetHold = null;
+        _clockTimer = null;
     }
 
     private void OnWeatherChanged(object? s, EventArgs e) => AppServices.Ui.Post(RefreshWeather);
@@ -309,7 +324,7 @@ public sealed partial class TodayViewModel : ObservableObject
     partial void OnIsEventSheetOpenChanged(bool value)
     {
         _sheetHold?.Dispose();
-        _sheetHold = value ? AppServices.Shell?.HoldOpen() : null;
+        _sheetHold = value && _shown ? AppServices.Shell?.HoldOpen() : null;
     }
 
     [RelayCommand]
@@ -376,7 +391,10 @@ public sealed partial class TodayViewModel : ObservableObject
     private async Task SaveEvent()
     {
         var day = DateTime.Today.AddDays(NewDayOffset);
-        var start = new DateTimeOffset(day.Year, day.Month, day.Day, NewHour, NewMinute, 0, TimeZoneInfo.Local.GetUtcOffset(day));
+        // Offset of the chosen wall-clock time (not of midnight), so DST-change days are right.
+        var local = new DateTime(day.Year, day.Month, day.Day, NewHour, NewMinute, 0, DateTimeKind.Unspecified);
+        if (TimeZoneInfo.Local.IsInvalidTime(local)) local = local.AddHours(1); // skipped hour in spring
+        var start = new DateTimeOffset(local, TimeZoneInfo.Local.GetUtcOffset(local));
         var minutes = Durations.FirstOrDefault(d => d.IsSelected)?.Value ?? 60;
         var color = Swatches.FirstOrDefault(s => s.IsSelected)?.Value;
         var target = Targets.FirstOrDefault(t => t.IsSelected)?.Value ?? "local";

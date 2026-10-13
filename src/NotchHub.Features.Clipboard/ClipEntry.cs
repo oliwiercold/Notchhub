@@ -16,7 +16,8 @@ public sealed partial class ClipEntry : ObservableObject
     private const int PreviewDecode = 720;
     private bool _thumbRequested, _previewRequested;
     private ImageSource? _thumb, _previewImage;
-    private string? _searchKey;
+    private const int SearchPrefix = 32_000;
+    private volatile string? _searchKey;
 
     public ClipEntry(ClipItem item, string group)
     {
@@ -99,10 +100,17 @@ public sealed partial class ClipEntry : ObservableObject
                 _previewRequested = true;
                 var path = Item.ImagePath ?? Item.ThumbnailPath;
                 var w = Item.ImageWidth > 0 ? Math.Min(Item.ImageWidth, PreviewDecode) : PreviewDecode;
-                if (path is not null) Load(path, w, img => { _previewImage = img; OnPropertyChanged(nameof(PreviewImage)); }, ref _previewImage);
+                if (path is not null) Load(path, w, img => { if (!_previewRequested) return; _previewImage = img; OnPropertyChanged(nameof(PreviewImage)); }, ref _previewImage);
             }
             return _previewImage ?? Thumb;
         }
+    }
+
+    /// <summary>Forgets the large preview decode (the entry is no longer the current one, or the tab was hidden).</summary>
+    public void ReleasePreview()
+    {
+        _previewRequested = false;
+        _previewImage = null;
     }
 
     private static void Load(string path, int width, Action<ImageSource?> done, ref ImageSource? field)
@@ -155,12 +163,30 @@ public sealed partial class ClipEntry : ObservableObject
 
     public string SourceText => IsPhone ? Loc.Get("clipboard.phone") : (string.IsNullOrWhiteSpace(Item.SourceApp) ? "—" : Item.SourceApp!);
 
+    public bool HasSearchKey => _searchKey is not null;
+
+    /// <summary>
+    /// Builds the normalized search key from a bounded prefix of the text (items can be ~1M chars). Pure and thread-safe, so the
+    /// view model can warm the keys off the UI thread.
+    /// </summary>
+    public void EnsureSearchKey()
+    {
+        if (_searchKey is not null) return;
+        var text = Item.Text ?? "";
+        if (text.Length > SearchPrefix) text = text[..SearchPrefix];
+        _searchKey = Normalize(string.Join("\n", text, Item.SourceApp ?? "", Item.Files is { } f ? string.Join("\n", f) : ""));
+    }
+
+    /// <summary>Frees the normalized copy of the text (tab hidden).</summary>
+    public void ReleaseSearchKey() => _searchKey = null;
+
     public bool Matches(string normalizedQuery)
     {
         if (normalizedQuery.Length == 0) return true;
-        _searchKey ??= Normalize(string.Join("\n", Item.Text ?? "", Item.SourceApp ?? "", Item.Kind == ClipKind.Image ? TypeText : "",
-            Item.Files is { } f ? string.Join("\n", f) : ""));
-        return _searchKey.Contains(normalizedQuery, StringComparison.Ordinal);
+        EnsureSearchKey();
+        if (_searchKey is { } key && key.Contains(normalizedQuery, StringComparison.Ordinal)) return true;
+        // localized kind label (read on the UI thread only), so "obraz" / "image" finds image clips
+        return Item.Kind == ClipKind.Image && Normalize(TypeText).Contains(normalizedQuery, StringComparison.Ordinal);
     }
 
     // ─────────── helpers ───────────

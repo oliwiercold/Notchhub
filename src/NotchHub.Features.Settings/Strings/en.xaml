@@ -152,6 +152,12 @@
     <sys:String x:Key="settings.Calendar.Google.Step5">5. Choose "Desktop app" as the application type and click "Create".</sys:String>
     <sys:String x:Key="settings.Calendar.Google.Step6">6. Copy the Client ID and Client secret into the fields above, then click "Connect Google".</sys:String>
     <sys:String x:Key="settings.Calendar.Google.OpenConsole">Open Google Cloud Console</sys:String>
+    <sys:String x:Key="settings.Calendar.Google.SignIn">Sign in with Google</sys:String>
+    <sys:String x:Key="settings.Calendar.Google.Advanced">Advanced: your own OAuth client</sys:String>
+    <sys:String x:Key="settings.Calendar.Google.AdvancedHint">Optional - use your own Google Cloud project instead of the client built into NotchHub. Leave empty for one-click sign-in.</sys:String>
+    <sys:String x:Key="settings.Link.Copied">Copied</sys:String>
+    <sys:String x:Key="settings.Link.CopyHint">Click to copy</sys:String>
+    <sys:String x:Key="settings.Link.Open">Open</sys:String>
     <sys:String x:Key="settings.Calendar.Google.AltTitle">No setup: view only</sys:String>
     <sys:String x:Key="settings.Calendar.Google.AltText">In Google Calendar open Settings → your calendar → "Integrate calendar", copy the "Secret address in iCal format" and add it below as an ICS subscription (read-only).</sys:String>
     <sys:String x:Key="settings.Calendar.Google.Err.Denied">Access was denied in the Google sign-in window.</sys:String>

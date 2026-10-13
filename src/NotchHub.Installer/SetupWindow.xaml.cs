@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -26,7 +26,8 @@ public partial class SetupWindow : Window
     private readonly SetupContext _ctx;
     private readonly SetupOptions _options = new();
     private FrameworkElement? _page;
-    private bool _busy, _closing, _launched, _uninstallDone;
+    private bool _busy, _closing, _finished;
+    private DispatcherTimer? _autoLaunch;
     private Action? _afterRunningConfirm;
 
     public SetupWindow(SetupContext ctx)
@@ -36,6 +37,7 @@ public partial class SetupWindow : Window
         DataContext = _options;
 
         _options.Language = Loc.Language;
+        if (ctx.NoLaunchPreset) _options.LaunchAfter = false;
         if (ctx.ExistingDir is not null) _options.InstallDir = ctx.ExistingDir;
         else if (ctx.TargetOverride is not null) _options.InstallDir = ctx.TargetOverride;
         if (ctx.ExistingDir is not null && !ctx.DryRun)
@@ -142,22 +144,42 @@ public partial class SetupWindow : Window
         else CloseAnimated();
     }
 
-    private void CloseAnimated()
+    /// <summary>
+    /// The card morphs back into the plain collapsed notch (same size and place as the app's own notch) and fades out.
+    /// With <paramref name="launch"/> the app is started only after the setup window is gone, so its notch takes over
+    /// in the same spot instead of appearing above the setup card.
+    /// </summary>
+    private void CloseAnimated(bool launch = false)
     {
         if (_closing) return;
         _closing = true;
+        _autoLaunch?.Stop();
+        _autoLaunch = null;
         Body.Animate(OpacityProperty, 0, MotionToken.FxFast);
         Notch.Animate(SetupNotch.OutlineOpacityProperty, 0, MotionToken.FxFast);
         Notch.Animate(SetupNotch.BodyHeightProperty, CollapsedH, MotionToken.Shrink);
         Notch.Animate(SetupNotch.RadiusProperty, 9, MotionToken.Shrink);
         Notch.Animate(SetupNotch.BodyWidthProperty, CollapsedW, MotionToken.ShrinkWide, () =>
         {
-            this.Animate(OpacityProperty, 0, MotionToken.Fx, () => Application.Current.Shutdown(_uninstallDone || _launched ? 0 : 0));
+            this.Animate(OpacityProperty, 0, MotionToken.Fx, () => Finish(launch));
         });
         // safety net if a spring never settles (e.g. window hidden)
         var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-        t.Tick += (_, _) => Application.Current.Shutdown(0);
+        t.Tick += (_, _) =>
+        {
+            t.Stop();
+            Finish(launch);
+        };
         t.Start();
+    }
+
+    private void Finish(bool launch)
+    {
+        if (_finished) return;
+        _finished = true;
+        Hide();
+        if (launch) new InstallEngine(_ctx, _options).Launch();
+        Application.Current.Shutdown(0);
     }
 
     // ───────────────────────────── pages ─────────────────────────────
@@ -341,14 +363,16 @@ public partial class SetupWindow : Window
             // let the wave be seen for a moment even when the copy is instant
             var left = TimeSpan.FromMilliseconds(900) - (DateTime.UtcNow - started);
             if (left > TimeSpan.Zero) await Task.Delay(left);
-            if (_options.LaunchAfter)
-            {
-                engine.Launch();
-                _launched = !_ctx.DryRun;
-            }
             _busy = false;
             FillDone();
             Show(PageDone);
+            if (_options.LaunchAfter)
+            {
+                // a short moment on "Gotowe!", then the card folds back into the notch and the app takes over
+                _autoLaunch = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.8) };
+                _autoLaunch.Tick += (_, _) => CloseAnimated(launch: true);
+                _autoLaunch.Start();
+            }
         }
         catch (Exception ex)
         {
@@ -376,16 +400,11 @@ public partial class SetupWindow : Window
         }
         DoneIcon.Glyph = "check";
         DoneTitle.Text = Loc.Get("setup.done.title");
-        DoneSub.Text = Loc.Get(_launched ? "setup.done.subLaunched" : "setup.done.sub");
-        LaunchButton.Visibility = _launched ? Visibility.Collapsed : Visibility.Visible;
+        DoneSub.Text = Loc.Get(_options.LaunchAfter ? "setup.done.subLaunch" : "setup.done.sub");
+        LaunchButton.Visibility = Visibility.Visible;
     }
 
-    private void OnLaunch(object sender, RoutedEventArgs e)
-    {
-        new InstallEngine(_ctx, _options).Launch();
-        _launched = true;
-        CloseAnimated();
-    }
+    private void OnLaunch(object sender, RoutedEventArgs e) => CloseAnimated(launch: true);
 
     private void OnRunningContinue(object sender, RoutedEventArgs e)
     {
@@ -445,7 +464,6 @@ public partial class SetupWindow : Window
             var left = TimeSpan.FromMilliseconds(900) - (DateTime.UtcNow - started);
             if (left > TimeSpan.Zero) await Task.Delay(left);
             _busy = false;
-            _uninstallDone = true;
             FillDone();
             Show(PageDone);
         }

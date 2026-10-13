@@ -20,7 +20,7 @@ public sealed class SetupOptions : INotifyPropertyChanged
     private bool _startWithWindows = true;
     private HoverBehavior _hover = HoverBehavior.PeekThenClick;
     private ReserveChoice _reserve = ReserveChoice.Off;
-    private bool _phone = true, _clipboard = true, _meetingBar = true;
+    private bool _phone = true, _clipboard = true, _meetingBar = true, _hotkeys = true;
     private bool _desktopShortcut = true, _startMenuShortcut = true, _launchAfter = true, _exampleMods = true;
     private string _installDir = SetupContext.DefaultInstallDir;
 
@@ -36,6 +36,8 @@ public sealed class SetupOptions : INotifyPropertyChanged
     public bool Phone { get => _phone; set => Set(ref _phone, value); }
     public bool Clipboard { get => _clipboard; set => Set(ref _clipboard, value); }
     public bool MeetingBar { get => _meetingBar; set => Set(ref _meetingBar, value); }
+    /// <summary>Global hotkeys (Ctrl+Alt+Space panel, Ctrl+Alt+V clipboard); off = written as empty (disabled).</summary>
+    public bool Hotkeys { get => _hotkeys; set => Set(ref _hotkeys, value); }
     public bool DesktopShortcut { get => _desktopShortcut; set => Set(ref _desktopShortcut, value); }
     public bool StartMenuShortcut { get => _startMenuShortcut; set => Set(ref _startMenuShortcut, value); }
     public bool LaunchAfter { get => _launchAfter; set => Set(ref _launchAfter, value); }
@@ -57,6 +59,11 @@ public sealed class SetupOptions : INotifyPropertyChanged
         s.Phone.Enabled = Phone;
         s.Clipboard.Enabled = Clipboard;
         s.MeetingBar.Enabled = MeetingBar;
+        if (!Hotkeys)
+        {
+            s.Shortcuts.TogglePanel = "";
+            s.Shortcuts.OpenClipboard = "";
+        }
         return s;
     }
 

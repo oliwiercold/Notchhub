@@ -12,8 +12,10 @@ namespace NotchHub.App.Shell;
 public sealed class AppBarReservation : IDisposable
 {
     private static readonly uint CallbackMessage = NativeMethods.RegisterWindowMessage("NotchHub.AppBar");
+    private static readonly uint TaskbarCreated = NativeMethods.RegisterWindowMessage("TaskbarCreated");
     private HwndSource? _source;
     private volatile bool _registered;
+    private bool _wanted;
     private double _heightDip;
     private int _monitorIndex = -1;
 
@@ -22,13 +24,17 @@ public sealed class AppBarReservation : IDisposable
 
     public bool IsRegistered => _registered;
 
-    /// <summary>Registers / repositions / removes the AppBar. UI thread.</summary>
-    public void Update(bool enabled, double heightDip, int monitorIndex)
+    /// <summary>
+    /// Registers / repositions / removes the AppBar. UI thread. Returns false when the registration failed (e.g. the
+    /// taskbar does not exist yet at logon); it is retried when Explorer broadcasts TaskbarCreated.
+    /// </summary>
+    public bool Update(bool enabled, double heightDip, int monitorIndex)
     {
+        _wanted = enabled;
         if (!enabled)
         {
             Remove();
-            return;
+            return true;
         }
         _heightDip = Math.Max(1, heightDip);
         _monitorIndex = monitorIndex;
@@ -38,10 +44,11 @@ public sealed class AppBarReservation : IDisposable
             var data = NewData();
             data.uCallbackMessage = CallbackMessage;
             _registered = NativeMethods.SHAppBarMessage(NativeMethods.ABM_NEW, ref data) != UIntPtr.Zero;
-            if (!_registered) { Log.Warn("AppBar registration failed"); return; }
+            if (!_registered) { Log.Warn("AppBar registration failed"); return false; }
             Log.Info("AppBar registered");
         }
         SetPosition();
+        return true;
     }
 
     private NativeMethods.APPBARDATA NewData() => new()
@@ -81,6 +88,18 @@ public sealed class AppBarReservation : IDisposable
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (msg == TaskbarCreated && TaskbarCreated != 0)
+        {
+            // Explorer (re)started: it forgot every AppBar, and any fullscreen notification it sent is void now
+            if (_registered) FullscreenChanged?.Invoke(this, false);
+            _registered = false;
+            if (_wanted)
+            {
+                Log.Info("AppBar: taskbar re-created, registering again");
+                Update(true, _heightDip, _monitorIndex);
+            }
+            return IntPtr.Zero;
+        }
         if (msg == CallbackMessage && _registered)
         {
             switch (wParam.ToInt32())
@@ -100,6 +119,7 @@ public sealed class AppBarReservation : IDisposable
     /// <summary>ABM_REMOVE. Safe to call from any thread, repeatedly (exit / crash handlers).</summary>
     public void Remove()
     {
+        _wanted = false;
         if (!_registered || _source is null) return;
         _registered = false;
         var data = NewData();

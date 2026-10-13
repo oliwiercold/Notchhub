@@ -68,6 +68,72 @@ public class ProtocolTests
     }
 
     [Fact]
+    public async Task Line_reader_splits_lines_across_reads_and_drops_cr_and_blank_lines()
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes("ab\r\n\n{\"x\":\"zażółć\"}\nlast-without-newline");
+        var lines = new List<string>();
+        await DeviceLink.ReadLinesAsync(new TrickleStream(bytes, 3), () => 1024, lines.Add, CancellationToken.None);
+        Assert.Equal(["ab", "{\"x\":\"zażółć\"}"], lines);
+    }
+
+    [Fact]
+    public async Task Line_reader_stops_an_endless_line_at_the_cap()
+    {
+        var lines = new List<string>();
+        var ex = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            DeviceLink.ReadLinesAsync(new EndlessStream(), () => DeviceLink.UnpairedMaxLineBytes, lines.Add, CancellationToken.None));
+        Assert.Contains("65536", ex.Message);
+        Assert.Empty(lines);
+    }
+
+    [Fact]
+    public async Task Line_reader_cap_is_read_per_line()
+    {
+        var big = new string('x', 2000);
+        var bytes = System.Text.Encoding.UTF8.GetBytes("short\n" + big + "\n");
+        var cap = 100;
+        var lines = new List<string>();
+        await DeviceLink.ReadLinesAsync(new TrickleStream(bytes, 64), () => cap, l => { lines.Add(l); cap = 4096; }, CancellationToken.None);
+        Assert.Equal(["short", big], lines);
+
+        cap = 100;
+        lines.Clear();
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            DeviceLink.ReadLinesAsync(new TrickleStream(bytes, 64), () => cap, lines.Add, CancellationToken.None));
+        Assert.Equal(["short"], lines);
+    }
+
+    /// <summary>Returns at most <c>step</c> bytes per read, so lines straddle reads.</summary>
+    private sealed class TrickleStream(byte[] data, int step) : MemoryStream(data)
+    {
+        public override int Read(byte[] buffer, int offset, int count) => base.Read(buffer, offset, Math.Min(count, step));
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default) =>
+            base.ReadAsync(buffer[..Math.Min(buffer.Length, step)], ct);
+    }
+
+    /// <summary>A peer that streams 'x' forever and never sends a newline.</summary>
+    private sealed class EndlessStream : Stream
+    {
+        public long Served;
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (Served > 64L * 1024 * 1024) throw new InvalidOperationException("reader never stopped");
+            buffer.AsSpan(offset, count).Fill((byte)'x');
+            Served += count;
+            return count;
+        }
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    [Fact]
     public void Certificate_and_verification_key()
     {
         using var a = CertificateHelper.Create("0123456789abcdef0123456789abcdef");

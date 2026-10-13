@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net.NetworkInformation;
 using System.Text.Json;
 using NotchHub.Core;
 using NotchHub.Core.Contracts;
@@ -12,11 +13,15 @@ namespace NotchHub.Services.Weather;
 /// persisted into the settings), else the public-IP location (cached for a day). Refreshes every 30 minutes, right
 /// after relevant settings changes, and retries failures with backoff. The last snapshot is cached in
 /// weather-cache.json and shown immediately at start-up. With Weather.Enabled = false nothing is requested.
+/// Waits are capped at <see cref="MaxSleep"/> and re-planned from the wall clock (timers do not advance while the PC
+/// sleeps), and network availability / address changes cut a failure backoff short.
 /// Error codes in <see cref="LastError"/>: "http_&lt;status&gt;", "timeout", "network", "parse", "location_not_found", "unknown".
 /// </summary>
 public sealed class WeatherService : IWeatherService
 {
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(30);
+    /// <summary>Longest single wait: Task.Delay excludes sleep time, so the loop re-checks the wall clock this often.</summary>
+    internal static readonly TimeSpan MaxSleep = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan IpCacheLifetime = TimeSpan.FromDays(1);
     private static readonly TimeSpan[] Backoff =
         [TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(30)];
@@ -43,6 +48,7 @@ public sealed class WeatherService : IWeatherService
     private bool _isLoading;
     private string? _lastError;
     private int _failures;
+    private DateTimeOffset _retryAt = DateTimeOffset.MinValue; // wall-clock end of the current failure backoff
     private bool _started;
     private bool _disposed;
 
@@ -89,6 +95,8 @@ public sealed class WeatherService : IWeatherService
         if (restored) RaiseChanged();
 
         _settings.Changed += OnSettingsChanged;
+        NetworkChange.NetworkAvailabilityChanged += OnNetworkChanged;
+        NetworkChange.NetworkAddressChanged += OnNetworkChanged;
         RunLoopAsync(_cts.Token).Forget("WeatherService.loop");
         return Task.CompletedTask;
     }
@@ -137,10 +145,14 @@ public sealed class WeatherService : IWeatherService
                     if (wait <= TimeSpan.Zero)
                     {
                         var ok = await FetchAsync(settings, ct).ConfigureAwait(false);
-                        int failures;
-                        lock (_gate) failures = _failures;
-                        wait = ok ? RefreshInterval : Backoff[Math.Clamp(failures - 1, 0, Backoff.Length - 1)];
+                        lock (_gate)
+                        {
+                            wait = ok ? RefreshInterval : Backoff[Math.Clamp(_failures - 1, 0, Backoff.Length - 1)];
+                            _retryAt = ok ? DateTimeOffset.MinValue : _time.GetUtcNow() + wait;
+                        }
                     }
+                    // Re-plan from the wall clock at least every few minutes (sleep/hibernate does not advance timers).
+                    if (wait > MaxSleep) wait = MaxSleep;
                 }
                 await _wake.WaitAsync(wait, _time, ct).ConfigureAwait(false);
             }
@@ -154,8 +166,11 @@ public sealed class WeatherService : IWeatherService
     {
         lock (_gate)
         {
-            if (_current is null || _currentKey != CacheKey(settings)) return TimeSpan.Zero;
-            return RefreshInterval - (_time.GetUtcNow() - _current.FetchedAt);
+            var now = _time.GetUtcNow();
+            var retryIn = _retryAt - now; // still backing off after a failure
+            if (_current is null || _currentKey != CacheKey(settings)) return retryIn > TimeSpan.Zero ? retryIn : TimeSpan.Zero;
+            var due = RefreshInterval - (now - _current.FetchedAt);
+            return retryIn > due ? retryIn : due;
         }
     }
 
@@ -168,6 +183,7 @@ public sealed class WeatherService : IWeatherService
             if (settings == _lastSettings) return;
             _lastSettings = settings;
             _failures = 0;
+            _retryAt = DateTimeOffset.MinValue;
             disabledNow = !settings.Enabled && (_current is not null || _lastError is not null);
             if (!settings.Enabled)
             {
@@ -177,6 +193,19 @@ public sealed class WeatherService : IWeatherService
             }
         }
         if (disabledNow) RaiseChanged();
+        _wake.Set();
+    }
+
+    /// <summary>Connectivity came back (or changed): end a failure backoff right away instead of waiting up to 30 min.</summary>
+    private void OnNetworkChanged(object? sender, EventArgs e)
+    {
+        if (e is NetworkAvailabilityEventArgs { IsAvailable: false }) return;
+        lock (_gate)
+        {
+            if (_disposed || _retryAt == DateTimeOffset.MinValue) return; // not backing off: nothing to do
+            _failures = 0;
+            _retryAt = DateTimeOffset.MinValue;
+        }
         _wake.Set();
     }
 
@@ -280,6 +309,7 @@ public sealed class WeatherService : IWeatherService
                 _currentKey = key;
                 _lastError = null;
                 _failures = 0;
+                _retryAt = DateTimeOffset.MinValue;
                 _cache.Snapshot = snapshot;
                 _cache.SnapshotKey = key;
                 toSave = _cache;
@@ -415,6 +445,8 @@ public sealed class WeatherService : IWeatherService
             _disposed = true;
         }
         _settings.Changed -= OnSettingsChanged;
+        NetworkChange.NetworkAvailabilityChanged -= OnNetworkChanged;
+        NetworkChange.NetworkAddressChanged -= OnNetworkChanged;
         _cts.Cancel();
     }
 }

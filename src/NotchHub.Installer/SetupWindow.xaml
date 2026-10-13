@@ -261,6 +261,14 @@
                                         <Grid Style="{StaticResource Row}">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                             <StackPanel>
+                                                <TextBlock Text="{DynamicResource setup.opt.hotkeys}" Style="{StaticResource RowTitle}" />
+                                                <TextBlock Text="{DynamicResource setup.opt.hotkeysDesc}" Style="{StaticResource Sub}" />
+                                            </StackPanel>
+                                            <ToggleButton Grid.Column="1" Style="{DynamicResource Switch}" IsChecked="{Binding Hotkeys}" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid Style="{StaticResource Row}">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <StackPanel>
                                                 <TextBlock Text="{DynamicResource setup.opt.mods}" Style="{StaticResource RowTitle}" />
                                                 <TextBlock Text="{DynamicResource setup.opt.modsDesc}" Style="{StaticResource Sub}" />
                                             </StackPanel>

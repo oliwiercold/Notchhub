@@ -152,6 +152,12 @@
     <sys:String x:Key="settings.Calendar.Google.Step5">5. Jako typ aplikacji wybierz „Aplikacja komputerowa” i kliknij „Utwórz”.</sys:String>
     <sys:String x:Key="settings.Calendar.Google.Step6">6. Skopiuj Client ID i Client secret do pól powyżej, a potem kliknij „Połącz z Google”.</sys:String>
     <sys:String x:Key="settings.Calendar.Google.OpenConsole">Otwórz Google Cloud Console</sys:String>
+    <sys:String x:Key="settings.Calendar.Google.SignIn">Zaloguj się przez Google</sys:String>
+    <sys:String x:Key="settings.Calendar.Google.Advanced">Zaawansowane: własny klient OAuth</sys:String>
+    <sys:String x:Key="settings.Calendar.Google.AdvancedHint">Opcjonalnie - użyj własnego projektu Google Cloud zamiast klienta wbudowanego w NotchHub. Zostaw puste, aby logować się jednym kliknięciem.</sys:String>
+    <sys:String x:Key="settings.Link.Copied">Skopiowano</sys:String>
+    <sys:String x:Key="settings.Link.CopyHint">Kliknij, aby skopiować</sys:String>
+    <sys:String x:Key="settings.Link.Open">Otwórz</sys:String>
     <sys:String x:Key="settings.Calendar.Google.AltTitle">Bez konfiguracji: tylko podgląd</sys:String>
     <sys:String x:Key="settings.Calendar.Google.AltText">W Kalendarzu Google otwórz Ustawienia → swój kalendarz → „Integracja kalendarza”, skopiuj „Tajny adres w formacie iCal” i dodaj go poniżej jako subskrypcję ICS (tylko do odczytu).</sys:String>
     <sys:String x:Key="settings.Calendar.Google.Err.Denied">Odmówiono dostępu w oknie logowania Google.</sys:String>

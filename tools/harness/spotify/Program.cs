@@ -89,6 +89,61 @@ using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
 }
 listener.Stop();
 
+// ── loopback robustness: an idle preconnect socket and a reset socket must not block or abort the real redirect ──
+listener = new TcpListener(IPAddress.Loopback, 0);
+listener.Start();
+port = ((IPEndPoint)listener.LocalEndpoint).Port;
+using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8)))
+{
+    var wait = SpotifyClient.WaitForCallbackAsync(listener, cts.Token);
+    using var idle = new TcpClient();
+    await idle.ConnectAsync(IPAddress.Loopback, port); // never sends anything (Chromium preconnect)
+    using (var reset = new TcpClient())
+    {
+        await reset.ConnectAsync(IPAddress.Loopback, port);
+        reset.Client.LingerState = new LingerOption(true, 0); // close with RST
+        await reset.GetStream().WriteAsync("GE"u8.ToArray());
+    }
+    await Task.Delay(100);
+    using var http = new HttpClient();
+    var sw = System.Diagnostics.Stopwatch.StartNew();
+    var ok = await http.GetAsync($"http://127.0.0.1:{port}/callback?code=C2&state=S2");
+    SpotifyAuth.Callback? got = null;
+    Exception? err = null;
+    try { got = await wait; } catch (Exception ex) { err = ex; }
+    Check("loopback idle+reset sockets do not block callback", err is null && got is { Code: "C2", State: "S2" } && (int)ok.StatusCode == 200 && sw.Elapsed < TimeSpan.FromSeconds(5));
+}
+using (var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300)))
+{
+    bool cancelled;
+    try { await SpotifyClient.WaitForCallbackAsync(listener, cts.Token); cancelled = false; }
+    catch (OperationCanceledException) { cancelled = true; }
+    Check("loopback honours cancellation", cancelled);
+}
+listener.Stop();
+
+// ── refresh vs sign-out / re-sign-in races (generation guard) ──
+var store = Path.Combine(Path.GetTempPath(), $"nh-spotify-harness-{Environment.ProcessId}.bin");
+var entropyField = typeof(SpotifyClient).GetField("Entropy", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+var storeEntropy = (byte[])entropyField.GetValue(null)!;
+File.WriteAllBytes(store, Dpapi.Protect(Encoding.UTF8.GetBytes("""{"clientId":"cid","refreshToken":"RT1","account":"A"}"""), storeEntropy));
+using (var client = new SpotifyClient(store))
+{
+    client.Load("cid");
+    Check("session loaded", client.HasSession && client.Account == "A");
+    var gen = client.SessionGeneration;
+    Check("current refresh applies", client.TryApplyRefresh(gen, new SpotifyToken("AT", "RT2", 3600, null), out var rotated) && rotated);
+    var stale = client.SessionGeneration;
+    client.SignOut();
+    Check("stale refresh after sign-out discarded", !client.TryApplyRefresh(stale, new SpotifyToken("AT3", "RT3", 3600, null), out _)
+        && !client.HasSession && !File.Exists(store));
+    File.WriteAllBytes(store, Dpapi.Protect(Encoding.UTF8.GetBytes("""{"clientId":"cid","refreshToken":"NEW","account":"B"}"""), storeEntropy));
+    var beforeReload = client.SessionGeneration;
+    client.Load("cid");
+    Check("stale refresh after reload discarded", client.HasSession && !client.TryApplyRefresh(beforeReload, new SpotifyToken("AT4", "OLD", 3600, null), out _));
+}
+try { File.Delete(store); } catch { }
+
 Console.WriteLine($"\n{passed} passed, {failed} failed");
 return failed == 0 ? 0 : 1;
 

@@ -143,8 +143,8 @@ public sealed partial class NotificationItem : ObservableObject
     private async Task SendReply()
     {
         var text = ReplyText.Trim();
-        ReplyText = "";
-        await _owner.ReplyAsync(this, text);
+        // keep the typed reply until the phone actually took it (it is lost otherwise when the link is down)
+        if (await _owner.ReplyAsync(this, text) && ReplyText.Trim() == text) ReplyText = "";
     }
 }
 
@@ -237,6 +237,15 @@ public sealed partial class PhoneViewModel : ObservableObject
             AppServices.Settings.Changed -= OnServiceChanged;
             _subscribed = false;
         }
+    }
+
+    /// <summary>Final release when the shell throws the view away.</summary>
+    public void Release()
+    {
+        OnHidden();
+        _callTimer = null;
+        _statusCts?.Cancel();
+        _statusCts = null;
     }
 
     private void OnServiceChanged(object? sender, EventArgs e) => AppServices.Ui.Post(Refresh);
@@ -482,11 +491,33 @@ public sealed partial class PhoneViewModel : ObservableObject
         if (_override is null && Service is { } s) await s.InvokeNotificationActionAsync(item.Id, action);
     }
 
-    internal async Task ReplyAsync(NotificationItem item, string text)
+    internal async Task<bool> ReplyAsync(NotificationItem item, string text)
     {
-        if (item.Model.ReplyId is not { } replyId) return;
-        if (_override is null && Service is { } s) await s.ReplyToNotificationAsync(replyId, text);
-        ShowFeedback(Loc.Get("phone.replySent"));
+        if (item.Model.ReplyId is not { } replyId) return false;
+        var ok = await TrySendAsync(s => s.ReplyToNotificationAsync(replyId, text), "reply");
+        ShowFeedback(Loc.Get(ok ? "phone.replySent" : "phone.sendFailed"));
+        return ok;
+    }
+
+    /// <summary>
+    /// Sends only while the phone is connected; false when it is not, when the service reports a failed send (the KDE Connect
+    /// implementation returns Task&lt;bool&gt; behind the plain Task contract) or when the send throws.
+    /// </summary>
+    private async Task<bool> TrySendAsync(Func<IPhoneService, Task> send, string context)
+    {
+        if (_override is not null) return true; // preview snapshot
+        if (Mode != PhoneMode.Connected || Service is not { } s) return false;
+        try
+        {
+            var task = send(s);
+            await task;
+            return task is not Task<bool> result || result.Result;
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"phone: {context} failed: {ex.GetType().Name}");
+            return false;
+        }
     }
 
     [RelayCommand]
@@ -501,15 +532,15 @@ public sealed partial class PhoneViewModel : ObservableObject
     [RelayCommand]
     private async Task Ring()
     {
-        if (Service is { } s && _override is null) await s.RingAsync();
-        ShowFeedback(Loc.Get("phone.ringSent"));
+        var ok = await TrySendAsync(s => s.RingAsync(), "ring");
+        ShowFeedback(Loc.Get(ok ? "phone.ringSent" : "phone.sendFailed"));
     }
 
     [RelayCommand]
     private async Task Ping()
     {
-        if (Service is { } s && _override is null) await s.PingAsync();
-        ShowFeedback(Loc.Get("phone.pingSent"));
+        var ok = await TrySendAsync(s => s.PingAsync(), "ping");
+        ShowFeedback(Loc.Get(ok ? "phone.pingSent" : "phone.sendFailed"));
     }
 
     [RelayCommand]
@@ -521,8 +552,8 @@ public sealed partial class PhoneViewModel : ObservableObject
             ShowFeedback(Loc.Get("phone.clipboardEmpty"));
             return;
         }
-        if (Service is { } s && _override is null) await s.SendClipboardAsync(text);
-        ShowFeedback(Loc.Get("phone.clipboardSent"));
+        var ok = await TrySendAsync(s => s.SendClipboardAsync(text), "clipboard");
+        ShowFeedback(Loc.Get(ok ? "phone.clipboardSent" : "phone.sendFailed"));
     }
 
     [RelayCommand]

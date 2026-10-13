@@ -8,23 +8,33 @@ using NotchHub.UI.Animation;
 
 namespace NotchHub.Features.Compact;
 
-public partial class HudView : UserControl, ITabView
+public partial class HudView : UserControl, ITabView, IDisposable
 {
+    private readonly ViewLifetime _life;
+
     public HudView()
     {
         InitializeComponent();
         DataContext = new HudViewModel();
         ViewModel.Presented += OnPresented;
+        _life = new ViewLifetime(this, ViewModel.OnShown, () => { ViewModel.OnHidden(); StopRing(); }, Release);
     }
 
     public HudViewModel ViewModel => (HudViewModel)DataContext;
 
-    public void OnShown() => ViewModel.OnShown();
+    public void OnShown() => _life.Show();
+    public void OnHidden() => _life.Hide();
 
-    public void OnHidden()
+    /// <summary>Called by the shell when it throws the view away; a new view is created when needed again.</summary>
+    public void Dispose() => _life.Dispose();
+
+    private void Release()
     {
-        ViewModel.OnHidden();
+        ViewModel.Presented -= OnPresented;
         StopRing();
+        TimerRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+        ChargeFillScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        ViewModel.Release();
     }
 
     private void OnPresented(object? sender, bool kindChanged)

@@ -262,6 +262,42 @@ internal sealed unsafe class WlanClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Reads a saved profile's XML (key material stays DPAPI-protected, which WlanSetProfile accepts back on this machine)
+    /// and its WLAN_PROFILE_* flags. Returns the Win32 result; ERROR_NOT_FOUND (1168) when no such profile exists.
+    /// </summary>
+    public uint GetProfile(Guid interfaceId, string profileName, out string? profileXml, out uint flags)
+    {
+        profileXml = null;
+        flags = 0;
+        lock (_gate)
+        {
+            if (_handle == IntPtr.Zero) return WlanNative.ErrorServiceNotActive;
+            var rc = WlanNative.WlanGetProfile(_handle, interfaceId, profileName, IntPtr.Zero, out var xml, ref flags, out _);
+            if (rc != WlanNative.ErrorSuccess || xml == IntPtr.Zero) return rc;
+            try
+            {
+                profileXml = Marshal.PtrToStringUni(xml);
+            }
+            finally
+            {
+                WlanNative.WlanFreeMemory(xml);
+            }
+            return rc;
+        }
+    }
+
+    /// <summary>Writes a profile back with its original flags (used to restore a profile after a failed attempt).</summary>
+    public uint RestoreProfile(Guid interfaceId, string profileXml, uint flags, out uint reasonCode)
+    {
+        reasonCode = 0;
+        lock (_gate)
+        {
+            if (_handle == IntPtr.Zero) return WlanNative.ErrorServiceNotActive;
+            return WlanNative.WlanSetProfile(_handle, interfaceId, flags & WlanNative.ProfileUser, profileXml, null, true, IntPtr.Zero, out reasonCode);
+        }
+    }
+
     public uint DeleteProfile(Guid interfaceId, string profileName)
     {
         lock (_gate)

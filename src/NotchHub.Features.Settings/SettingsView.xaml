@@ -135,6 +135,54 @@
             </Border>
         </DataTemplate>
 
+        <!-- Clickable link / redirect URI in a how-to: click copies it, optional "Otwórz" opens the page -->
+        <Style TargetType="local:LinkChip">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Margin" Value="0,4,0,6" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="local:LinkChip">
+                        <DockPanel>
+                            <ui:M3Button x:Name="PART_Open" DockPanel.Dock="Right" Variant="Text" Size="S" Icon="open_in_new" Margin="4,0,0,0"
+                                         VerticalAlignment="Center" Content="{DynamicResource settings.Link.Open}" Visibility="Collapsed" />
+                            <Button x:Name="PART_Copy" Style="{StaticResource Tappable}" ToolTip="{DynamicResource settings.Link.CopyHint}"
+                                    AutomationProperties.Name="{TemplateBinding Url}">
+                                <Border x:Name="Chip" Background="{DynamicResource Brush.Surface2}" CornerRadius="12" Padding="10,6"
+                                        BorderBrush="{DynamicResource Brush.Outline}" BorderThickness="1">
+                                    <DockPanel>
+                                        <Grid DockPanel.Dock="Right" Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <ui:Icon x:Name="CopyIcon" Glyph="content_copy" Size="16" Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+                                            <StackPanel x:Name="Copied" Orientation="Horizontal" Visibility="Collapsed">
+                                                <ui:Icon Glyph="check" Size="16" Margin="0,0,4,0" Foreground="{DynamicResource Brush.Primary}" />
+                                                <TextBlock Style="{DynamicResource Text.LabelS}" Foreground="{DynamicResource Brush.Primary}"
+                                                           Text="{DynamicResource settings.Link.Copied}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <ui:Icon Glyph="link" Size="16" Margin="0,0,8,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Primary}" />
+                                        <TextBlock Text="{TemplateBinding Url}" FontFamily="Consolas" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Brush.OnSurface}" />
+                                    </DockPanel>
+                                </Border>
+                            </Button>
+                        </DockPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="CanOpen" Value="True">
+                                <Setter TargetName="PART_Open" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger SourceName="PART_Copy" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chip" Property="Background" Value="{DynamicResource Brush.Surface3}" />
+                            </Trigger>
+                            <Trigger Property="IsCopied" Value="True">
+                                <Setter TargetName="CopyIcon" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="Copied" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="Chip" Property="BorderBrush" Value="{DynamicResource Brush.Primary}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -575,7 +623,7 @@
                         <StackPanel>
                             <local:SettingRow Icon="account_circle" Title="{DynamicResource settings.Calendar.Google.Title}" Description="{Binding GoogleStatusText}">
                                 <StackPanel Orientation="Horizontal">
-                                    <ui:M3Button Variant="Filled" Icon="login" Content="{DynamicResource settings.Calendar.Google.Connect}"
+                                    <ui:M3Button Variant="Filled" Icon="login" Content="{Binding GoogleConnectText}"
                                                  Command="{Binding ConnectGoogleCommand}" IsEnabled="{Binding CanConnectGoogle}"
                                                  Visibility="{Binding IsGoogleConnected, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}" />
                                     <ui:M3Button Variant="Outlined" Icon="logout" Content="{DynamicResource settings.Calendar.Google.Disconnect}"
@@ -587,7 +635,8 @@
                                        Visibility="{Binding IsGoogleBusy, Converter={conv:BoolToVisibility}}" />
                             <TextBlock Style="{DynamicResource Text.BodyS}" Foreground="{DynamicResource Brush.Error}" Text="{Binding GoogleErrorText}" TextWrapping="Wrap" Margin="48,0,0,4"
                                        Visibility="{Binding GoogleErrorText, Converter={conv:NullToVisibility}}" />
-                            <Grid Margin="0,8,0,0" IsEnabled="{Binding CanEditGoogleClient}">
+                            <Grid Margin="0,8,0,0" IsEnabled="{Binding CanEditGoogleClient}"
+                                  Visibility="{Binding GoogleBuiltIn, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="8" />
@@ -627,33 +676,63 @@
                             <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.DefaultTarget}" Margin="0,12,0,2" />
                             <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding EventTargetChoices}" />
 
-                            <Button Style="{StaticResource Tappable}" Command="{Binding ToggleGoogleHelpCommand}" Margin="0,10,0,0"
-                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                            <!-- built-in OAuth client: own client id / secret + how-to hidden under "Zaawansowane" -->
+                            <Button Style="{StaticResource Tappable}" Command="{Binding ToggleGoogleAdvancedCommand}" Margin="0,10,0,0"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                    Visibility="{Binding GoogleBuiltIn, Converter={conv:BoolToVisibility}}">
                                 <DockPanel Background="Transparent" Margin="0,6">
-                                    <ui:Icon DockPanel.Dock="Right" Glyph="expand_more" Size="20" Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
-                                    <ui:Icon Glyph="help" Size="20" Margin="0,0,10,0" Foreground="{DynamicResource Brush.Primary}" />
-                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.HelpTitle}" VerticalAlignment="Center" />
+                                    <ui:Icon DockPanel.Dock="Right" Glyph="{Binding GoogleAdvancedGlyph}" Size="20" Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+                                    <ui:Icon Glyph="tune" Size="20" Margin="0,0,10,0" Foreground="{DynamicResource Brush.Primary}" />
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.Advanced}" VerticalAlignment="Center" />
                                 </DockPanel>
                             </Button>
-                            <StackPanel Visibility="{Binding GoogleHelpOpen, Converter={conv:BoolToVisibility}}" Margin="30,4,0,0">
-                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step1}" />
-                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step2}" />
-                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step3}" />
-                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step4}" />
-                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step5}" />
-                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step6}" />
-                                <ui:M3Button Variant="Tonal" Icon="open_in_new" HorizontalAlignment="Left" Margin="0,8,0,0"
-                                             Content="{DynamicResource settings.Calendar.Google.OpenConsole}" Command="{Binding OpenCloudConsoleCommand}" />
+                            <StackPanel Visibility="{Binding GoogleShowClientFields, Converter={conv:BoolToVisibility}}">
+                                <StackPanel Visibility="{Binding GoogleBuiltIn, Converter={conv:BoolToVisibility}}" Margin="0,2,0,0">
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.Calendar.Google.AdvancedHint}" TextWrapping="Wrap" Margin="30,0,0,4" />
+                                    <Grid Margin="0,4,0,0" IsEnabled="{Binding CanEditGoogleClient}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Style="{DynamicResource TextField}" ui:Field.Icon="key" ui:Field.Placeholder="{DynamicResource settings.Calendar.Google.ClientId}"
+                                                 Text="{Binding GoogleClientId, UpdateSourceTrigger=PropertyChanged}" />
+                                        <TextBox Grid.Column="2" Style="{DynamicResource TextField}" ui:Field.Icon="lock" ui:Field.Placeholder="{DynamicResource settings.Calendar.Google.ClientSecret}"
+                                                 Text="{Binding GoogleClientSecret, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Grid>
+                                </StackPanel>
+
+                                <Button Style="{StaticResource Tappable}" Command="{Binding ToggleGoogleHelpCommand}" Margin="0,10,0,0"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                    <DockPanel Background="Transparent" Margin="0,6">
+                                        <ui:Icon DockPanel.Dock="Right" Glyph="expand_more" Size="20" Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+                                        <ui:Icon Glyph="help" Size="20" Margin="0,0,10,0" Foreground="{DynamicResource Brush.Primary}" />
+                                        <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.HelpTitle}" VerticalAlignment="Center" />
+                                    </DockPanel>
+                                </Button>
+                                <StackPanel Visibility="{Binding GoogleHelpOpen, Converter={conv:BoolToVisibility}}" Margin="30,4,0,0">
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step1}" />
+                                    <local:LinkChip Url="https://console.cloud.google.com/projectcreate" CanOpen="True" />
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step2}" />
+                                    <local:LinkChip Url="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" CanOpen="True" />
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step3}" />
+                                    <local:LinkChip Url="https://console.cloud.google.com/apis/credentials/consent" CanOpen="True" />
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step4}" />
+                                    <local:LinkChip Url="https://console.cloud.google.com/apis/credentials" CanOpen="True" />
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step5}" />
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step6}" />
+                                </StackPanel>
+                                <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Padding="12,10" Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <ui:Icon Glyph="lightbulb" Size="20" Margin="0,0,10,0" VerticalAlignment="Top" Foreground="{DynamicResource Brush.Primary}" />
+                                        <StackPanel>
+                                            <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.AltTitle}" TextWrapping="Wrap" />
+                                            <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.Calendar.Google.AltText}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                            <local:LinkChip Url="https://calendar.google.com/calendar/r/settings" CanOpen="True" Margin="0,6,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
                             </StackPanel>
-                            <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Padding="12,10" Margin="0,10,0,0">
-                                <DockPanel>
-                                    <ui:Icon Glyph="lightbulb" Size="20" Margin="0,0,10,0" VerticalAlignment="Top" Foreground="{DynamicResource Brush.Primary}" />
-                                    <StackPanel>
-                                        <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.AltTitle}" TextWrapping="Wrap" />
-                                        <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.Calendar.Google.AltText}" TextWrapping="Wrap" Margin="0,2,0,0" />
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
                         </StackPanel>
                     </Border>
 
@@ -1053,20 +1132,9 @@
                                      ui:Field.Placeholder="{DynamicResource settings.Spotify.ClientId}"
                                      Text="{Binding SpotifyClientId, UpdateSourceTrigger=PropertyChanged}" />
 
-                            <!-- exact redirect URI to register -->
-                            <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Padding="12,8" Margin="0,8,0,0">
-                                <DockPanel>
-                                    <ui:M3Button DockPanel.Dock="Right" Variant="Tonal" Size="S" Icon="content_copy" Margin="8,0,0,0"
-                                                 Content="{DynamicResource settings.Spotify.Copy}" Command="{Binding CopySpotifyRedirectCommand}" />
-                                    <ui:Icon Glyph="link" Size="20" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Primary}" />
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Style="{DynamicResource Text.LabelS}" Text="{DynamicResource settings.Spotify.RedirectLabel}" />
-                                        <TextBox Style="{x:Null}" IsReadOnly="True" BorderThickness="0" Background="Transparent" Padding="0"
-                                                 FontFamily="Consolas" FontSize="13" Foreground="{DynamicResource Brush.OnSurface}"
-                                                 Text="{Binding SpotifyRedirectUri, Mode=OneWay}" />
-                                    </StackPanel>
-                                </DockPanel>
-                            </Border>
+                            <!-- exact redirect URI to register (click = copy) -->
+                            <TextBlock Style="{DynamicResource Text.LabelS}" Text="{DynamicResource settings.Spotify.RedirectLabel}" Margin="4,10,0,0" TextWrapping="Wrap" />
+                            <local:LinkChip Url="{Binding SpotifyRedirectUri, Mode=OneWay}" />
 
                             <Button Style="{StaticResource Tappable}" Command="{Binding ToggleSpotifyHelpCommand}" Margin="0,10,0,0"
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
@@ -1078,13 +1146,13 @@
                             </Button>
                             <StackPanel Visibility="{Binding SpotifyHelpOpen, Converter={conv:BoolToVisibility}}" Margin="30,4,0,0">
                                 <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step1}" />
+                                <local:LinkChip Url="https://developer.spotify.com/dashboard" CanOpen="True" />
                                 <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step2}" />
                                 <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step3}" />
+                                <local:LinkChip Url="{Binding SpotifyRedirectUri, Mode=OneWay}" />
                                 <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step4}" />
                                 <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step5}" />
                                 <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,6,0,2" Text="{DynamicResource settings.Spotify.Notes}" />
-                                <ui:M3Button Variant="Tonal" Icon="open_in_new" HorizontalAlignment="Left" Margin="0,8,0,0"
-                                             Content="{DynamicResource settings.Spotify.OpenDashboard}" Command="{Binding OpenSpotifyDashboardCommand}" />
                             </StackPanel>
                         </StackPanel>
                     </Border>

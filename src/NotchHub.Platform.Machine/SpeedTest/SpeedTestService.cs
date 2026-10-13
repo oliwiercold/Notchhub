@@ -22,6 +22,8 @@ public sealed class SpeedTestService : ISpeedTestService
     private const int UploadChunk = 4_000_000;
     private static readonly TimeSpan PhaseDuration = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan Warmup = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan LatencyRequestTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan LatencyPhaseTimeout = TimeSpan.FromSeconds(20);
 
     private static readonly HttpClient Http = CreateClient();
     private static readonly byte[] UploadPayload = CreatePayload();
@@ -150,11 +152,26 @@ public sealed class SpeedTestService : ISpeedTestService
     private async Task<(double Median, double? Jitter)> MeasureLatencyAsync(CancellationToken ct)
     {
         var samples = new List<double>();
+        // Each request and the whole phase get their own deadline (the HttpClient has no global timeout), so a reply
+        // blackholed by a dropped link / VPN / captive portal cannot keep the test in the Latency phase forever.
+        using var phase = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        phase.CancelAfter(LatencyPhaseTimeout);
         for (var i = 0; i < LatencySamples; i++)
         {
             ct.ThrowIfCancellationRequested();
+            using var request = CancellationTokenSource.CreateLinkedTokenSource(phase.Token);
+            request.CancelAfter(LatencyRequestTimeout);
             var sw = Stopwatch.StartNew();
-            using (var response = await Http.GetAsync($"{BaseUrl}/__down?bytes=0", HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false))
+            HttpResponseMessage resp;
+            try
+            {
+                resp = await Http.GetAsync($"{BaseUrl}/__down?bytes=0", HttpCompletionOption.ResponseHeadersRead, request.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+            {
+                throw new TimeoutException("Latency request timed out", ex); // reported as Failed, not as a user cancel
+            }
+            using (var response = resp)
             {
                 response.EnsureSuccessStatusCode();
                 sw.Stop();

@@ -9,8 +9,9 @@ using NotchHub.UI.Animation;
 
 namespace NotchHub.Features.Compact;
 
-public partial class LiveActivityView : UserControl, ITabView
+public partial class LiveActivityView : UserControl, ITabView, IDisposable
 {
+    private readonly ViewLifetime _life;
     private const double Flat = 0.22;
     private readonly ScaleTransform[] _bars;
     private readonly Random _rng = new();
@@ -28,12 +29,27 @@ public partial class LiveActivityView : UserControl, ITabView
         }).ToArray();
         ViewModel.PropertyChanged += OnVmChanged;
         UpdateAnimation();
+        _life = new ViewLifetime(this,
+            () => { ViewModel.OnShown(); UpdateAnimation(); },
+            () => { ViewModel.OnHidden(); UpdateAnimation(); },
+            Release);
     }
 
     public LiveActivityViewModel ViewModel => (LiveActivityViewModel)DataContext;
 
-    public void OnShown() { ViewModel.OnShown(); UpdateAnimation(); }
-    public void OnHidden() { ViewModel.OnHidden(); UpdateAnimation(); }
+    public void OnShown() => _life.Show();
+    public void OnHidden() => _life.Hide();
+
+    /// <summary>Called by the shell when it throws the view away; a new view is created when needed again.</summary>
+    public void Dispose() => _life.Dispose();
+
+    private void Release()
+    {
+        ViewModel.PropertyChanged -= OnVmChanged;
+        ViewModel.Release();
+        _running = false;
+        foreach (var st in _bars) st.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+    }
 
     private void OnVmChanged(object? sender, PropertyChangedEventArgs e)
     {

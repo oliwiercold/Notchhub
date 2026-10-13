@@ -161,6 +161,9 @@ internal static unsafe partial class WlanNative
     /// <summary>WlanSetProfile flag: per-user profile.</summary>
     public const uint ProfileUser = 0x2;
 
+    /// <summary>WlanGetProfile output flag: profile created by group policy (cannot be overwritten).</summary>
+    public const uint ProfileGroupPolicy = 0x1;
+
     // DOT11_AUTH_ALGORITHM
     public const uint AuthOpen = 1;
     public const uint AuthSharedKey = 2;
@@ -218,6 +221,13 @@ internal static unsafe partial class WlanNative
     public static partial uint WlanSetProfile(
         IntPtr hClientHandle, in Guid pInterfaceGuid, uint dwFlags, string strProfileXml, string? strAllUserProfileSecurity,
         [MarshalAs(UnmanagedType.Bool)] bool bOverwrite, IntPtr pReserved, out uint pdwReasonCode);
+
+    /// <summary><paramref name="pdwFlags"/> is in/out (in: WLAN_PROFILE_GET_PLAINTEXT_KEY etc.; out: WLAN_PROFILE_USER / GROUP_POLICY).
+    /// The XML string is allocated by the API and must be freed with <see cref="WlanFreeMemory"/>.</summary>
+    [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf16)]
+    public static partial uint WlanGetProfile(
+        IntPtr hClientHandle, in Guid pInterfaceGuid, string strProfileName, IntPtr pReserved, out IntPtr pstrProfileXml,
+        ref uint pdwFlags, out uint pdwGrantedAccess);
 
     [LibraryImport(Lib, StringMarshalling = StringMarshalling.Utf16)]
     public static partial uint WlanDeleteProfile(IntPtr hClientHandle, in Guid pInterfaceGuid, string strProfileName, IntPtr pReserved);

@@ -49,6 +49,7 @@
     <sys:String x:Key="phone.ringSent">Phone is ringing</sys:String>
     <sys:String x:Key="phone.pingSent">Ping sent</sys:String>
     <sys:String x:Key="phone.clipboardSent">Clipboard sent</sys:String>
+    <sys:String x:Key="phone.sendFailed">Could not send - check the phone connection</sys:String>
     <sys:String x:Key="phone.clipboardEmpty">Clipboard is empty</sys:String>
     <sys:String x:Key="phone.batteryUnknown">No battery data</sys:String>
     <sys:String x:Key="phone.batteryLastKnown">last known</sys:String>

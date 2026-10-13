@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using NotchHub.Core;
 using NotchHub.Core.Contracts;
 using NotchHub.Core.Settings;
 using NotchHub.Services.Calendar;
@@ -48,7 +49,7 @@ public sealed class GoogleCalendarTests : IDisposable
         Assert.Equal("id.apps.googleusercontent.com", q["client_id"]);
         Assert.Equal("http://127.0.0.1:5555/", q["redirect_uri"]);
         Assert.Equal("code", q["response_type"]);
-        Assert.Equal("https://www.googleapis.com/auth/calendar openid email", q["scope"]);
+        Assert.Equal("https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly openid email", q["scope"]);
         Assert.Equal("CHAL", q["code_challenge"]);
         Assert.Equal("S256", q["code_challenge_method"]);
         Assert.Equal("ST", q["state"]);
@@ -231,7 +232,8 @@ public sealed class GoogleCalendarTests : IDisposable
         using var calendar = new CalendarService(settings, Path.Combine(_dir, "calendar.json"), Path.Combine(_dir, "cache"), null, time,
             Path.Combine(_dir, "google-token.bin"));
 
-        Assert.Equal(GoogleConnectionState.NotConfigured, calendar.GoogleState);
+        // Without an own client id the built-in client is used when NotchHub ships one.
+        Assert.Equal(BuiltInClients.HasGoogle ? GoogleConnectionState.Disconnected : GoogleConnectionState.NotConfigured, calendar.GoogleState);
         settings.Update(s => s.Calendar.GoogleClientId = "123.apps.googleusercontent.com");
         await calendar.StartAsync();
         Assert.Equal(GoogleConnectionState.Disconnected, calendar.GoogleState);
@@ -250,6 +252,19 @@ public sealed class GoogleCalendarTests : IDisposable
         Assert.True(await calendar.RemoveEventAsync(ev.Id));
         Assert.Empty(calendar.GetEvents(now, now.AddDays(1)));
         await calendar.DisconnectGoogleAsync(); // no token: must not touch the network
+    }
+
+    [Fact]
+    public void Own_client_wins_over_built_in_and_built_in_is_the_fallback()
+    {
+        var own = new CalendarSettings { GoogleClientId = " own.apps.googleusercontent.com ", GoogleClientSecret = " s1 " };
+        Assert.Equal(("own.apps.googleusercontent.com", "s1"), CalendarService.ResolveGoogleClient(own, "builtin", "bs"));
+        var ownNoSecret = new CalendarSettings { GoogleClientId = "own" };
+        Assert.Equal(("own", (string?)null), CalendarService.ResolveGoogleClient(ownNoSecret, "builtin", "bs"));
+        var empty = new CalendarSettings { GoogleClientId = "  ", GoogleClientSecret = "ignored" };
+        Assert.Equal(("builtin", "bs"), CalendarService.ResolveGoogleClient(empty, "builtin", "bs"));
+        Assert.Equal(("builtin", (string?)null), CalendarService.ResolveGoogleClient(null, "builtin", ""));
+        Assert.Equal(("", (string?)null), CalendarService.ResolveGoogleClient(empty, "", ""));
     }
 
     [Fact]

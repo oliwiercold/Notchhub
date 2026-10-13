@@ -8,7 +8,6 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Markup;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using NotchHub.Core;
@@ -44,6 +43,8 @@ internal sealed partial class WidgetMod : IDisposable
 
     public WidgetMod(ModManifest manifest, string dir, IModContext ctx, ISettingsService settings)
     {
+        // reject unsafe or broken views up front so Settings -> Mods shows the error (ModInfo.Error)
+        if (manifest.Tab is not null) WidgetXaml.Validate(Path.Combine(dir, manifest.View));
         _manifest = manifest;
         _dir = dir;
         _settings = settings;
@@ -84,11 +85,8 @@ internal sealed partial class WidgetMod : IDisposable
         FrameworkElement content;
         try
         {
-            using var fs = File.OpenRead(path);
-            var pc = new ParserContext { BaseUri = new Uri(Path.GetFullPath(path)) };
-            pc.XmlnsDictionary.Add("", "http://schemas.microsoft.com/winfx/2006/xaml/presentation");
-            pc.XmlnsDictionary.Add("x", "http://schemas.microsoft.com/winfx/2006/xaml");
-            content = (FrameworkElement)XamlReader.Load(fs, pc);
+            // restricted path: a view cannot start programs or run code (see WidgetXaml)
+            content = WidgetXaml.Load(path);
         }
         catch (Exception ex)
         {
@@ -171,13 +169,56 @@ internal sealed partial class WidgetMod : IDisposable
             UseShellExecute = false,
             CreateNoWindow = true,
             StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8,
         };
         foreach (var a in data.Args) psi.ArgumentList.Add(a);
         using var p = Process.Start(psi) ?? throw new InvalidOperationException("could not start " + data.Command);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var output = await p.StandardOutput.ReadToEndAsync(cts.Token);
-        await p.WaitForExitAsync(cts.Token);
-        return output;
+        try
+        {
+            // stdout and stderr are drained concurrently: a script writing more than the pipe buffer to stderr must not block
+            var stdout = ReadCappedAsync(p.StandardOutput, MaxCommandOutput, throwWhenFull: true);
+            var stderr = ReadCappedAsync(p.StandardError, 16 * 1024, throwWhenFull: false);
+            await Task.WhenAll(stdout, stderr).WaitAsync(cts.Token);
+            await p.WaitForExitAsync(cts.Token);
+            var output = await stdout;
+            if (string.IsNullOrWhiteSpace(output) && p.ExitCode != 0)
+                throw new InvalidOperationException($"{Path.GetFileName(data.Command)} exited with code {p.ExitCode}");
+            return output;
+        }
+        catch (OperationCanceledException)
+        {
+            KillTree(p);
+            throw new TimeoutException($"{Path.GetFileName(data.Command)} did not finish within 20 s");
+        }
+        catch
+        {
+            KillTree(p);
+            throw;
+        }
+    }
+
+    private const int MaxCommandOutput = 1024 * 1024;
+
+    /// <summary>Reads a redirected stream to the end, keeping at most <paramref name="max"/> chars (the rest is drained or rejected).</summary>
+    private static async Task<string> ReadCappedAsync(StreamReader reader, int max, bool throwWhenFull)
+    {
+        var sb = new System.Text.StringBuilder();
+        var buffer = new char[4096];
+        int n;
+        while ((n = await reader.ReadAsync(buffer.AsMemory()).ConfigureAwait(false)) > 0)
+        {
+            var take = Math.Min(n, max - sb.Length);
+            if (take > 0) sb.Append(buffer, 0, take);
+            if (take < n && throwWhenFull) throw new InvalidDataException("command output is larger than 1 MB");
+        }
+        return sb.ToString();
+    }
+
+    private static void KillTree(Process p)
+    {
+        try { if (!p.HasExited) p.Kill(entireProcessTree: true); }
+        catch (Exception ex) { Log.Warn($"Mods: could not stop a widget command: {ex.Message}"); }
     }
 
     /// <summary>Replaces {a.b.0.c} placeholders with values from the JSON.</summary>

@@ -83,6 +83,10 @@ internal sealed class FakePhone : IDisposable
         throw new TimeoutException($"phone never received {type}");
     }
 
+    private int _payloadConnections;
+    /// <summary>How many times the PC connected to fetch a payload offered by <see cref="ServePayload"/>.</summary>
+    public int PayloadConnections => Volatile.Read(ref _payloadConnections);
+
     /// <summary>Offers a payload like the Android app: listen on a port, we are the TLS server.</summary>
     public int ServePayload(byte[] data)
     {
@@ -93,6 +97,7 @@ internal sealed class FakePhone : IDisposable
             try
             {
                 using var c = await l.AcceptTcpClientAsync();
+                Interlocked.Increment(ref _payloadConnections);
                 await using var ssl = new SslStream(c.GetStream(), false);
                 await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
                 {

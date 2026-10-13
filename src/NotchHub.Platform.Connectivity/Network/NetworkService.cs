@@ -255,7 +255,8 @@ public sealed class NetworkService : INetworkService
 
     /// <summary>
     /// Connects to a visible network with a new per-user profile built from its security (WPA3-SAE / WPA2-PSK / WPA-PSK /
-    /// WEP / OWE / open). The profile is removed again when the attempt fails (wrong password, timeout).
+    /// WEP / OWE / open). When the attempt fails (wrong password, timeout) the previous state is restored: a profile that
+    /// already existed under that name gets its original XML back, a newly added one is removed.
     /// </summary>
     public Task<bool> ConnectWifiAsync(string ssid, string? password) => Task.Run(() => ConnectNewAsync(ssid, password));
 
@@ -284,6 +285,20 @@ public sealed class NetworkService : INetworkService
                 Log.Warn($"Network: unsupported Wi-Fi security (auth {entry.AuthAlgorithm}, cipher {entry.CipherAlgorithm}) or invalid key length");
                 return false;
             }
+            // The new profile is named after the SSID, which is also the name Windows gives its own saved profile, so
+            // remember any existing one first (never delete the user's saved network on a failed attempt).
+            var get = wlan.GetProfile(iface.Id, ssid, out var originalXml, out var originalFlags);
+            var existed = get == WlanNative.ErrorSuccess && originalXml is not null;
+            if (!existed && get is not (WlanNative.ErrorSuccess or ErrorNotFound))
+            {
+                Log.Warn($"Network: WlanGetProfile failed ({get}); not touching the saved profiles");
+                return false;
+            }
+            if (existed && (originalFlags & WlanNative.ProfileGroupPolicy) != 0)
+            {
+                Log.Info("Network: the saved profile is managed by group policy; not overwriting it");
+                return false;
+            }
             var rc = wlan.SetProfile(iface.Id, xml, out var reason);
             if (rc != WlanNative.ErrorSuccess)
             {
@@ -293,13 +308,23 @@ public sealed class NetworkService : INetworkService
             var ok = await ConnectProfileAsync(wlan, iface.Id, ssid, entry).ConfigureAwait(false);
             if (!ok)
             {
-                var del = wlan.DeleteProfile(iface.Id, ssid);
-                if (del != WlanNative.ErrorSuccess) Log.Warn($"Network: WlanDeleteProfile failed ({del})");
+                if (existed)
+                {
+                    var res = wlan.RestoreProfile(iface.Id, originalXml!, originalFlags, out var restoreReason);
+                    if (res != WlanNative.ErrorSuccess) Log.Warn($"Network: restoring the saved profile failed ({res}, reason {restoreReason})");
+                }
+                else
+                {
+                    var del = wlan.DeleteProfile(iface.Id, ssid);
+                    if (del != WlanNative.ErrorSuccess) Log.Warn($"Network: WlanDeleteProfile failed ({del})");
+                }
             }
             return ok;
         }
         return false;
     }
+
+    private const uint ErrorNotFound = 1168;
 
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(15);
 

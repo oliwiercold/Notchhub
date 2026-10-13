@@ -21,6 +21,11 @@ internal sealed class KdeConnectOptions
     public bool AcceptLoopback { get; init; }
     public TimeSpan AnnounceInterval { get; init; } = TimeSpan.FromMinutes(2);
     public TimeSpan PairTimeout { get; init; } = TimeSpan.FromSeconds(30);
+    /// <summary>
+    /// An unpaired link with no pair request in progress is closed after this long, so idle strangers cannot fill the
+    /// unpaired-device slots. A real phone reconnects on our next announcement.
+    /// </summary>
+    public TimeSpan UnpairedLinkTimeout { get; init; } = TimeSpan.FromMinutes(5);
     /// <summary>How long battery / signal / notifications survive a dropped link (phones hand links over constantly).</summary>
     public TimeSpan OfflineGrace { get; init; } = TimeSpan.FromSeconds(20);
     /// <summary>How long a missed call stays visible as <see cref="NotchHub.Core.Contracts.IPhoneService.ActiveCall"/>.</summary>

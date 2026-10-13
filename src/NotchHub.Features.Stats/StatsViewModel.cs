@@ -105,6 +105,13 @@ public sealed partial class StatsViewModel : ObservableObject
         _live = null;
     }
 
+    /// <summary>Final release when the shell throws the view away (a running speed test keeps running in the service).</summary>
+    public void Release()
+    {
+        OnHidden();
+        _speedCts = null; // not disposed: the service may still hold its token
+    }
+
     private void OnLanguageChanged(object? sender, EventArgs e) => Refresh();
     private void OnStatsUpdated(object? sender, EventArgs e) => AppServices.Ui.Post(() => { if (_shown) ApplyStats(); });
     private void OnSpeedChanged(object? sender, EventArgs e) => AppServices.Ui.Post(() => { if (_shown) ApplySpeed(); });

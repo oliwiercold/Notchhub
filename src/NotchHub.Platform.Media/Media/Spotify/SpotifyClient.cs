@@ -35,6 +35,10 @@ internal sealed class SpotifyClient : IDisposable
     private readonly string _storePath;
     private readonly SemaphoreSlim _tokenLock = new(1, 1);
     private readonly object _lock = new();
+    /// <summary>Serializes the session file write/delete so a late Persist cannot resurrect a deleted session.</summary>
+    private readonly object _fileLock = new();
+    /// <summary>Bumped by Load, SignOut and a completed sign-in; a refresh started under an older generation is discarded.</summary>
+    private int _sessionGen;
     private string? _clientId;
     private string? _refreshToken;
     private string? _accessToken;
@@ -62,8 +66,10 @@ internal sealed class SpotifyClient : IDisposable
     /// <summary>Loads the stored session if it belongs to <paramref name="clientId"/>; otherwise the client has no session.</summary>
     public void Load(string clientId)
     {
+        int gen;
         lock (_lock)
         {
+            gen = ++_sessionGen;
             _clientId = clientId;
             _refreshToken = null;
             _accessToken = null;
@@ -81,6 +87,7 @@ internal sealed class SpotifyClient : IDisposable
             if (!string.Equals(storedClient, clientId, StringComparison.Ordinal) || string.IsNullOrEmpty(refresh)) return;
             lock (_lock)
             {
+                if (gen != _sessionGen) return; // signed out / signed in again meanwhile
                 _refreshToken = refresh;
                 Account = account;
             }
@@ -93,24 +100,28 @@ internal sealed class SpotifyClient : IDisposable
 
     private void Persist()
     {
-        string? clientId, refresh, account;
-        lock (_lock)
+        // Held across read + write: SignOut clears memory first and then waits here, so it always deletes after any write.
+        lock (_fileLock)
         {
-            clientId = _clientId;
-            refresh = _refreshToken;
-            account = Account;
-        }
-        if (clientId is null || refresh is null) return;
-        try
-        {
-            var json = JsonSerializer.Serialize(new Dictionary<string, string?> { ["clientId"] = clientId, ["refreshToken"] = refresh, ["account"] = account });
-            var tmp = _storePath + ".tmp";
-            File.WriteAllBytes(tmp, Dpapi.Protect(Encoding.UTF8.GetBytes(json), Entropy));
-            File.Move(tmp, _storePath, overwrite: true);
-        }
-        catch (Exception ex)
-        {
-            Log.Warn($"Spotify: saving the session failed ({ex.GetType().Name})");
+            string? clientId, refresh, account;
+            lock (_lock)
+            {
+                clientId = _clientId;
+                refresh = _refreshToken;
+                account = Account;
+            }
+            if (clientId is null || refresh is null) return;
+            try
+            {
+                var json = JsonSerializer.Serialize(new Dictionary<string, string?> { ["clientId"] = clientId, ["refreshToken"] = refresh, ["account"] = account });
+                var tmp = _storePath + ".tmp";
+                File.WriteAllBytes(tmp, Dpapi.Protect(Encoding.UTF8.GetBytes(json), Entropy));
+                File.Move(tmp, _storePath, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"Spotify: saving the session failed ({ex.GetType().Name})");
+            }
         }
     }
 
@@ -119,12 +130,16 @@ internal sealed class SpotifyClient : IDisposable
     {
         lock (_lock)
         {
+            _sessionGen++;
             _refreshToken = null;
             _accessToken = null;
             Account = null;
         }
-        try { if (File.Exists(_storePath)) File.Delete(_storePath); }
-        catch (Exception ex) { Log.Warn($"Spotify: deleting the session failed ({ex.GetType().Name})"); }
+        lock (_fileLock)
+        {
+            try { if (File.Exists(_storePath)) File.Delete(_storePath); }
+            catch (Exception ex) { Log.Warn($"Spotify: deleting the session failed ({ex.GetType().Name})"); }
+        }
     }
 
     // ───────────── sign-in (PKCE + loopback) ─────────────
@@ -162,6 +177,7 @@ internal sealed class SpotifyClient : IDisposable
         if (token.RefreshToken is null) throw new SpotifyException("no_refresh_token");
         lock (_lock)
         {
+            _sessionGen++;
             _clientId = clientId;
             _refreshToken = token.RefreshToken;
             _accessToken = token.AccessToken;
@@ -186,40 +202,82 @@ internal sealed class SpotifyClient : IDisposable
         return account ?? "Spotify";
     }
 
+    /// <summary>
+    /// Accepts connections until one carries a valid /callback request. Each connection is handled on its own task, so an idle
+    /// (browser preconnect) or reset socket can neither block nor abort the real redirect queued behind it.
+    /// </summary>
     internal static async Task<SpotifyAuth.Callback> WaitForCallbackAsync(TcpListener listener, CancellationToken ct)
     {
-        while (true)
+        var found = new TaskCompletionSource<SpotifyAuth.Callback>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handlers = new List<Task>();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        Task<TcpClient>? accept = null;
+        try
         {
-            using var client = await listener.AcceptTcpClientAsync(ct).ConfigureAwait(false);
-            using var stream = client.GetStream();
-            stream.ReadTimeout = 5000;
-            var line = await ReadRequestLineAsync(stream, ct).ConfigureAwait(false);
-            var target = line is null ? null : SpotifyAuth.RequestTarget(line);
-            var callback = target is null ? null : SpotifyAuth.ParseCallback(target);
-            await RespondAsync(stream, callback is not null, ct).ConfigureAwait(false);
-            if (callback is not null) return callback;
+            while (true)
+            {
+                accept = listener.AcceptTcpClientAsync(stop.Token).AsTask();
+                if (await Task.WhenAny(accept, found.Task).ConfigureAwait(false) == found.Task) return await found.Task.ConfigureAwait(false);
+                TcpClient client;
+                try { client = await accept.ConfigureAwait(false); }
+                catch (SocketException) { continue; } // connection aborted before the accept completed
+                accept = null;
+                handlers.RemoveAll(t => t.IsCompleted);
+                handlers.Add(HandleConnectionAsync(client, found, stop.Token));
+            }
+        }
+        finally
+        {
+            stop.Cancel();
+            // A pending accept is cancelled by stop; one that completed in the same instant as the callback is closed here.
+            if (accept is not null) _ = accept.ContinueWith(static t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); }, TaskScheduler.Default);
+            try { await Task.WhenAll(handlers).ConfigureAwait(false); } catch { /* handlers swallow their own errors */ }
         }
     }
 
+    private static async Task HandleConnectionAsync(TcpClient client, TaskCompletionSource<SpotifyAuth.Callback> found, CancellationToken ct)
+    {
+        try
+        {
+            using (client)
+            {
+                var stream = client.GetStream();
+                var line = await ReadRequestLineAsync(stream, ct).ConfigureAwait(false);
+                if (line is null) return; // idle preconnect, reset, or closed without a request
+                var target = SpotifyAuth.RequestTarget(line);
+                var callback = target is null ? null : SpotifyAuth.ParseCallback(target);
+                try { await RespondAsync(stream, callback is not null, ct).ConfigureAwait(false); }
+                catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException or ObjectDisposedException) { }
+                if (callback is not null) found.TrySetResult(callback);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException or ObjectDisposedException)
+        {
+            // a broken connection is ignored; the listener keeps waiting for the real redirect
+        }
+    }
+
+    /// <summary>Reads up to the first CRLF. Null when the peer closes, resets or sends nothing for 10 s.</summary>
     private static async Task<string?> ReadRequestLineAsync(NetworkStream stream, CancellationToken ct)
     {
         var buffer = new byte[8192];
         int total = 0;
         using var readTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         readTimeout.CancelAfter(TimeSpan.FromSeconds(10));
-        while (total < buffer.Length)
+        try
         {
-            int n = await stream.ReadAsync(buffer.AsMemory(total), readTimeout.Token).ConfigureAwait(false);
-            if (n == 0) break;
-            total += n;
-            var text = Encoding.ASCII.GetString(buffer, 0, total);
-            if (text.Contains("\r\n\r\n", StringComparison.Ordinal) || text.Contains("\r\n", StringComparison.Ordinal))
+            while (total < buffer.Length)
             {
+                int n = await stream.ReadAsync(buffer.AsMemory(total), readTimeout.Token).ConfigureAwait(false);
+                if (n == 0) break;
+                total += n;
+                var text = Encoding.ASCII.GetString(buffer, 0, total);
                 var end = text.IndexOf("\r\n", StringComparison.Ordinal);
-                // drain the rest of the headers if they are already here; the request line is all we need
-                return text[..end];
+                if (end >= 0) return text[..end]; // the request line is all we need
             }
         }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return null; }
+        catch (IOException) { return null; }
         return null;
     }
 
@@ -282,32 +340,58 @@ internal sealed class SpotifyClient : IDisposable
         try
         {
             string? clientId, refresh;
+            int gen;
             lock (_lock)
             {
                 if (!forceRefresh && _accessToken is { } token && DateTimeOffset.UtcNow < _accessExpires - TimeSpan.FromSeconds(60)) return token;
                 clientId = _clientId;
                 refresh = _refreshToken;
+                gen = _sessionGen;
             }
             if (clientId is null || refresh is null) throw new SpotifyException("not_connected", sessionLost: true);
             SpotifyToken fresh;
             try { fresh = await PostTokenAsync(SpotifyAuth.RefreshForm(clientId, refresh), ct).ConfigureAwait(false); }
             catch (SpotifyException ex) when (ex.SessionLost)
             {
-                SignOut();
+                SignOutIfCurrent(gen); // a stale failure must not sign out a session created meanwhile
                 throw;
             }
-            bool rotated;
-            lock (_lock)
-            {
-                _accessToken = fresh.AccessToken;
-                _accessExpires = DateTimeOffset.UtcNow.AddSeconds(fresh.ExpiresIn);
-                rotated = fresh.RefreshToken is not null && fresh.RefreshToken != _refreshToken;
-                if (rotated) _refreshToken = fresh.RefreshToken;
-            }
+            if (!TryApplyRefresh(gen, fresh, out bool rotated)) throw new SpotifyException("not_connected", sessionLost: true);
             if (rotated) Persist();
             return fresh.AccessToken;
         }
         finally { _tokenLock.Release(); }
+    }
+
+    /// <summary>
+    /// Applies a refresh result only if the session it was requested for is still current (no SignOut / Load / new sign-in
+    /// happened during the request). Otherwise the result is discarded so a disconnected session is not brought back and a
+    /// newer account's rotated refresh token is not overwritten.
+    /// </summary>
+    internal bool TryApplyRefresh(int gen, SpotifyToken fresh, out bool rotated)
+    {
+        lock (_lock)
+        {
+            rotated = false;
+            if (gen != _sessionGen || _refreshToken is null) return false;
+            _accessToken = fresh.AccessToken;
+            _accessExpires = DateTimeOffset.UtcNow.AddSeconds(fresh.ExpiresIn);
+            rotated = fresh.RefreshToken is not null && fresh.RefreshToken != _refreshToken;
+            if (rotated) _refreshToken = fresh.RefreshToken;
+            return true;
+        }
+    }
+
+    internal int SessionGeneration
+    {
+        get { lock (_lock) return _sessionGen; }
+    }
+
+    private void SignOutIfCurrent(int gen)
+    {
+        bool current;
+        lock (_lock) current = gen == _sessionGen;
+        if (current) SignOut();
     }
 
     // ───────────── Web API ─────────────
@@ -362,6 +446,7 @@ internal sealed class SpotifyClient : IDisposable
         bool changed;
         lock (_lock)
         {
+            if (_refreshToken is null) name = null; // signed out while the request was in flight
             changed = name is not null && name != Account;
             if (name is not null) Account = name;
         }

@@ -43,6 +43,10 @@ public sealed class PhoneService : IPhoneService
     private bool _disposed;
     private volatile bool _running;
 
+    /// <summary>Unix ms of the last clipboard change we know of (PC copy forwarded or phone text applied); guarded by _gate.</summary>
+    private long _clipboardStampMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    private string? _clipboardLastText;
+
     private volatile PhoneDevice[] _snapDevices = [];
     private volatile PhoneDevice? _snapActive;
     private volatile PhoneBattery? _snapBattery;
@@ -100,6 +104,10 @@ public sealed class PhoneService : IPhoneService
         public int CallGen;
         /// <summary>Bumped on every link attach / close; the offline-grace timer only clears data of the drop it belongs to.</summary>
         public int LinkGen;
+        /// <summary>Environment.TickCount64 of the last link attach (oldest idle unpaired link is evicted first).</summary>
+        public long AttachedAt;
+        /// <summary>payloadHash of the icon last downloaded per notification id (an update with the same hash keeps the icon).</summary>
+        public Dictionary<string, string> IconHashes = new(StringComparer.Ordinal);
         public bool IsReachable => Link is { IsClosed: false };
     }
 
@@ -545,7 +553,9 @@ public sealed class PhoneService : IPhoneService
     private void AttachLink(DeviceLink link)
     {
         DeviceLink? old;
+        DeviceLink? evicted = null;
         bool paired;
+        DeviceState d;
         lock (_gate)
         {
             if (!_running)
@@ -553,12 +563,26 @@ public sealed class PhoneService : IPhoneService
                 link.Close();
                 return;
             }
-            if (!_devices.TryGetValue(link.DeviceId, out var d))
+            if (_devices.TryGetValue(link.DeviceId, out var known)) d = known;
+            else
             {
                 if (_devices.Values.Count(x => x.Pair != PhonePairState.Paired) >= MaxUnpairedDevices)
                 {
-                    link.Close();
-                    return;
+                    // Make room by dropping the oldest unpaired link that has no pair request in progress; refuse only when
+                    // every slot is busy pairing.
+                    var victim = _devices.Values.Where(x => x.Pair == PhonePairState.NotPaired)
+                        .OrderBy(x => x.AttachedAt).FirstOrDefault();
+                    if (victim is null)
+                    {
+                        link.Close();
+                        return;
+                    }
+                    evicted = victim.Link;
+                    victim.Link = null;
+                    victim.LinkGen++;
+                    CancelPairTimer(victim);
+                    ClearLive(victim);
+                    _devices.Remove(victim.Id);
                 }
                 d = new DeviceState(link.DeviceId);
                 _devices[d.Id] = d;
@@ -571,6 +595,9 @@ public sealed class PhoneService : IPhoneService
             old = d.Link;
             d.Link = link;
             d.LinkGen++;
+            d.AttachedAt = Environment.TickCount64;
+            var state = d;
+            link.MaxLineBytes = () => state.Pair == PhonePairState.Paired ? DeviceLink.PairedMaxLineBytes : DeviceLink.UnpairedMaxLineBytes;
             if (link.Name.Length > 0) d.Name = link.Name;
             d.Type = link.DeviceType;
             d.ProtocolVersion = link.ProtocolVersion;
@@ -586,6 +613,11 @@ public sealed class PhoneService : IPhoneService
             link.Closed += OnLinkClosed;
         }
         old?.Close();
+        if (evicted is not null)
+        {
+            Log.Debug($"KdeConnect: unpaired device limit reached, dropped idle link {evicted.DeviceId[..8]}…");
+            evicted.Close();
+        }
         link.Start();
         Log.Info($"KdeConnect: link up with {link.DeviceId[..8]}… ({link.DeviceType}, paired={paired})");
         if (paired)
@@ -593,7 +625,39 @@ public sealed class PhoneService : IPhoneService
             SavePaired();
             RequestInitialState(link);
         }
+        else
+        {
+            WatchUnpairedLink(d, link);
+        }
         Publish();
+    }
+
+    /// <summary>
+    /// Closes <paramref name="link"/> once it has stayed unpaired for <see cref="KdeConnectOptions.UnpairedLinkTimeout"/>
+    /// (the wait restarts while a pair request is in progress). Ends as soon as the link is replaced, closed or paired.
+    /// </summary>
+    private void WatchUnpairedLink(DeviceState d, DeviceLink link)
+    {
+        CancellationToken ct;
+        try { ct = _runCts?.Token ?? new CancellationToken(true); }
+        catch (ObjectDisposedException) { return; }
+        if (ct.IsCancellationRequested) return;
+        Task.Run(async () =>
+        {
+            while (true)
+            {
+                try { await Task.Delay(_options.UnpairedLinkTimeout, ct).ConfigureAwait(false); }
+                catch (OperationCanceledException) { return; }
+                lock (_gate)
+                {
+                    if (link.IsClosed || d.Link != link || d.Pair == PhonePairState.Paired) return;
+                    if (d.Pair != PhonePairState.NotPaired) continue;
+                }
+                Log.Debug($"KdeConnect: idle unpaired link {link.DeviceId[..8]}… closed");
+                link.Close();
+                return;
+            }
+        }, CancellationToken.None).Forget("KdeConnect.UnpairedTimeout");
     }
 
     private static void RequestInitialState(DeviceLink link)
@@ -645,6 +709,7 @@ public sealed class PhoneService : IPhoneService
         d.Battery = null;
         d.Signal = null;
         d.Notifications = [];
+        d.IconHashes.Clear();
         d.Call = null;
         d.CallGen++;
         d.VerificationKey = null;
@@ -689,8 +754,8 @@ public sealed class PhoneService : IPhoneService
             case NetworkPacket.ClipboardConnect:
                 var content = p.GetString("content");
                 if (string.IsNullOrEmpty(content)) break;
-                if (p.Type == NetworkPacket.ClipboardConnect && (p.GetLong("timestamp") ?? 0) == 0) break;
-                Raise(() => ClipboardReceived?.Invoke(this, content));
+                if (AcceptClipboard(p.Type == NetworkPacket.ClipboardConnect, content, p.GetLong("timestamp") ?? 0))
+                    Raise(() => ClipboardReceived?.Invoke(this, content));
                 break;
             case NetworkPacket.Ping:
                 Log.Debug("KdeConnect: ping received");
@@ -698,6 +763,31 @@ public sealed class PhoneService : IPhoneService
             default:
                 Log.Debug($"KdeConnect: unhandled packet {p.Type}");
                 break;
+        }
+    }
+
+    /// <summary>
+    /// kdeconnect.clipboard is a live copy on the phone and is always applied. kdeconnect.clipboard.connect is re-sent on every
+    /// (re)connect with the time of the phone's last copy; like kdeconnect-kde it is applied only when that copy is newer than
+    /// the last clipboard change we know of (PC copy forwarded to the phone, phone text applied, or service start), so a
+    /// reconnect never replaces a newer PC clipboard with stale phone text.
+    /// </summary>
+    private bool AcceptClipboard(bool isConnect, string content, long timestampMs)
+    {
+        lock (_gate)
+        {
+            if (isConnect)
+            {
+                if (timestampMs <= 0 || timestampMs <= _clipboardStampMs) return false;
+                _clipboardStampMs = timestampMs;
+                if (content == _clipboardLastText) return false;
+            }
+            else
+            {
+                _clipboardStampMs = Math.Max(_clipboardStampMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            }
+            _clipboardLastText = content;
+            return true;
         }
     }
 
@@ -845,7 +935,11 @@ public sealed class PhoneService : IPhoneService
         if (string.IsNullOrEmpty(id)) return;
         if (p.GetBool("isCancel") == true)
         {
-            lock (_gate) d.Notifications.RemoveAll(n => n.Id == id);
+            lock (_gate)
+            {
+                d.Notifications.RemoveAll(n => n.Id == id);
+                d.IconHashes.Remove(id);
+            }
             Publish();
             return;
         }
@@ -860,23 +954,42 @@ public sealed class PhoneService : IPhoneService
         var replyId = p.GetString("requestReplyId");
         var silent = p.GetBool("silent") ?? false;
 
+        var payloadHash = p.GetString("payloadHash");
+        if (string.IsNullOrEmpty(payloadHash)) payloadHash = null;
+
         bool isNew;
+        bool needIcon;
         PhoneNotification notification;
         lock (_gate)
         {
             var existing = d.Notifications.FindIndex(n => n.Id == id);
             isNew = existing < 0;
+            var existingIcon = isNew ? null : d.Notifications[existing].IconPng;
             notification = new PhoneNotification(id, p.GetString("appName") ?? "", title, text, string.IsNullOrEmpty(ticker) ? null : ticker,
                 time, p.GetBool("isClearable") ?? true, silent, string.IsNullOrEmpty(replyId) ? null : replyId,
-                p.GetStringList("actions"), isNew ? null : d.Notifications[existing].IconPng);
+                p.GetStringList("actions"), existingIcon);
             if (!isNew) d.Notifications.RemoveAt(existing);
             d.Notifications.Add(notification);
             d.Notifications.Sort((a, b) => b.Time.CompareTo(a.Time));
             if (d.Notifications.Count > MaxNotifications) d.Notifications.RemoveRange(MaxNotifications, d.Notifications.Count - MaxNotifications);
+            // Android re-attaches the icon to every update of an ongoing notification (progress, media, timers): fetch it only
+            // when we have none yet or the phone says it changed, instead of a new TLS connection per update.
+            needIcon = p.HasPayload && (existingIcon is null
+                || (payloadHash is not null && (!d.IconHashes.TryGetValue(id, out var known) || known != payloadHash)));
+            if (needIcon)
+            {
+                if (payloadHash is not null) d.IconHashes[id] = payloadHash;
+                else d.IconHashes.Remove(id);
+                if (d.IconHashes.Count > MaxNotifications * 2)
+                {
+                    var live = d.Notifications.Select(n => n.Id).ToHashSet(StringComparer.Ordinal);
+                    foreach (var k in d.IconHashes.Keys.Where(k => !live.Contains(k)).ToList()) d.IconHashes.Remove(k);
+                }
+            }
         }
         Publish();
         var announce = isNew && !silent;
-        if (p.HasPayload && _local is { } local)
+        if (needIcon && _local is { } local)
         {
             DownloadIconAsync(d, link, local, notification, p.PayloadPort!.Value, p.PayloadSize, announce).Forget("KdeConnect.Icon");
         }
@@ -1145,6 +1258,12 @@ public sealed class PhoneService : IPhoneService
     {
         if (string.IsNullOrEmpty(text)) return;
         List<DeviceLink> links;
+        lock (_gate)
+        {
+            // A PC copy: an older phone clipboard offered on the next reconnect must not overwrite it.
+            _clipboardStampMs = Math.Max(_clipboardStampMs, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            _clipboardLastText = text;
+        }
         lock (_gate)
             links = _devices.Values.Where(d => d.Pair == PhonePairState.Paired && d.IsReachable).Select(d => d.Link!).ToList();
         foreach (var l in links)

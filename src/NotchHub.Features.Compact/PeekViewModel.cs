@@ -53,12 +53,27 @@ public sealed partial class PeekViewModel : ObservableObject
         if (AppServices.Media is { } media)
         {
             // Always on (event based) so ShowsMedia is right when the shell measures the peek before showing it.
-            media.Changed += (_, _) => AppServices.Ui.Post(UpdateMedia);
+            media.Changed += OnMediaChanged;
             UpdateMedia();
         }
-        if (AppServices.Settings is { } settings) settings.Changed += (_, _) => AppServices.Ui.Post(UpdateLayoutFlags);
+        if (AppServices.Settings is { } settings) settings.Changed += OnSettingsChanged;
         UpdateClock();
         UpdateLayoutFlags();
+    }
+
+    private bool _released;
+    private void OnMediaChanged(object? s, EventArgs e) => AppServices.Ui.Post(() => { if (!_released) UpdateMedia(); });
+    private void OnSettingsChanged(object? s, EventArgs e) => AppServices.Ui.Post(() => { if (!_released) UpdateLayoutFlags(); });
+
+    /// <summary>Final release when the shell throws the view away: the always-on subscriptions go too.</summary>
+    public void Release()
+    {
+        OnHidden();
+        _released = true;
+        if (AppServices.Media is { } media) media.Changed -= OnMediaChanged;
+        if (AppServices.Settings is { } settings) settings.Changed -= OnSettingsChanged;
+        _session = null;
+        Thumbnail = null;
     }
 
     partial void OnShowsMediaChanged(bool value) => UpdateLayoutFlags();
@@ -71,7 +86,7 @@ public sealed partial class PeekViewModel : ObservableObject
 
     public void OnShown()
     {
-        if (_shown) return;
+        if (_shown || _released) return;
         _shown = true;
         if (AppServices.Weather is { } w) w.Changed += OnGlanceChanged;
         if (AppServices.Calendar is { } c) c.Changed += OnGlanceChanged;

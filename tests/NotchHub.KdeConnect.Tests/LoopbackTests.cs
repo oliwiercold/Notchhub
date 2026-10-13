@@ -26,7 +26,7 @@ public sealed class LoopbackTests : IDisposable
         try { Directory.Delete(_dir, true); } catch { }
     }
 
-    private PhoneService CreateService(FakePhone phone, out SettingsService settings)
+    private PhoneService CreateService(FakePhone phone, out SettingsService settings, TimeSpan? unpairedLinkTimeout = null)
     {
         settings = new SettingsService(Path.Combine(_dir, "settings.json"));
         settings.Current.Phone.DeviceName = "Test PC";
@@ -40,6 +40,7 @@ public sealed class LoopbackTests : IDisposable
             AnnounceInterval = TimeSpan.FromSeconds(2),
             OfflineGrace = TimeSpan.FromMilliseconds(400),
             MissedCallLinger = TimeSpan.FromMilliseconds(600),
+            UnpairedLinkTimeout = unpairedLinkTimeout ?? TimeSpan.FromMinutes(5),
         });
     }
 
@@ -247,6 +248,126 @@ public sealed class LoopbackTests : IDisposable
         settings.Update(s => s.Phone.Enabled = false);
         await Until(() => !svc.IsRunning, "stopped");
         Assert.Empty(svc.Devices);
+    }
+
+    private async Task ConnectAndPairAsync(PhoneService svc, FakePhone phone)
+    {
+        await phone.ConnectFromAnnouncementAsync(_cts.Token);
+        await Until(() => svc.Devices.Any(d => d.Id == phone.Id && d.IsReachable), "device visible");
+        await phone.SendAsync(NetworkPacket.Pair, new JsonObject { ["pair"] = true, ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
+        await Until(() => svc.Devices.Single().PairState == PhonePairState.RequestedByPeer, "pair requested");
+        await svc.AcceptPairAsync(phone.Id);
+        await Until(() => svc.ActiveDevice?.PairState == PhonePairState.Paired, "paired");
+    }
+
+    [Fact]
+    public async Task Clipboard_connect_applies_only_newer_phone_copies()
+    {
+        using var phone = new FakePhone();
+        using var svc = CreateService(phone, out _);
+        var clips = new List<string>();
+        svc.ClipboardReceived += (_, t) => { lock (clips) clips.Add(t); };
+        string[] Clips() { lock (clips) return clips.ToArray(); }
+        await svc.StartAsync();
+        await ConnectAndPairAsync(svc, phone);
+        long Now() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        // Copied on the phone before NotchHub started, and the "no timestamp" form: both ignored.
+        await phone.SendAsync(NetworkPacket.ClipboardConnect, new JsonObject { ["content"] = "sprzed startu", ["timestamp"] = Now() - 3_600_000 });
+        await phone.SendAsync(NetworkPacket.ClipboardConnect, new JsonObject { ["content"] = "bez czasu", ["timestamp"] = 0 });
+        // Copied on the phone while it was away: applied once, the same packet on the next reconnect is not.
+        var copiedAt = Now();
+        await phone.SendAsync(NetworkPacket.ClipboardConnect, new JsonObject { ["content"] = "nowy", ["timestamp"] = copiedAt });
+        await phone.SendAsync(NetworkPacket.ClipboardConnect, new JsonObject { ["content"] = "nowy", ["timestamp"] = copiedAt });
+        await phone.SendAsync(NetworkPacket.Clipboard, new JsonObject { ["content"] = "znacznik 1" });
+        await Until(() => Clips().Length >= 2, "clipboard marker 1");
+        Assert.Equal(["nowy", "znacznik 1"], Clips());
+
+        // A PC copy sent to the phone wins over an older phone copy offered on reconnect.
+        await Task.Delay(5);
+        var beforePcCopy = Now();
+        await Task.Delay(5);
+        await svc.SendClipboardAsync("z komputera");
+        Assert.Equal("z komputera", (await phone.WaitForAsync(NetworkPacket.Clipboard)).GetString("content"));
+        await phone.SendAsync(NetworkPacket.ClipboardConnect, new JsonObject { ["content"] = "stary", ["timestamp"] = beforePcCopy });
+        // Paired devices may send packets far above the unpaired 64 KB line cap.
+        var big = new string('x', 100_000);
+        await phone.SendAsync(NetworkPacket.Clipboard, new JsonObject { ["content"] = big });
+        await Until(() => Clips().Length >= 3, "clipboard marker 2");
+        Assert.Equal(["nowy", "znacznik 1", big], Clips());
+        Assert.True(svc.ActiveDevice?.IsReachable);
+    }
+
+    [Fact]
+    public async Task Notification_icon_is_fetched_once_per_payload_hash()
+    {
+        using var phone = new FakePhone();
+        using var svc = CreateService(phone, out _);
+        PhoneNotification? posted = null;
+        svc.NotificationPosted += (_, e) => posted = e.Notification;
+        await svc.StartAsync();
+        await ConnectAndPairAsync(svc, phone);
+
+        JsonObject Body(string text, string hash) => new()
+        {
+            ["id"] = "0|com.android.providers.downloads|1|null|10001", ["appName"] = "Pobieranie", ["title"] = "plik.zip", ["text"] = text,
+            ["isClearable"] = false, ["time"] = "1700000000000", ["payloadHash"] = hash,
+        };
+        byte[] icon1 = [1, 1, 1, 1, 1], icon2 = [2, 2, 2, 2, 2, 2];
+
+        await phone.SendAsync(NetworkPacket.Notification, Body("10%", "h1"), icon1.Length, phone.ServePayload(icon1));
+        await Until(() => posted is not null, "NotificationPosted");
+        Assert.Equal(icon1, posted!.IconPng);
+        Assert.Equal(1, phone.PayloadConnections);
+
+        // Progress updates carry the same icon again: no new download, icon kept.
+        await phone.SendAsync(NetworkPacket.Notification, Body("50%", "h1"), icon1.Length, phone.ServePayload(icon1));
+        await phone.SendAsync(NetworkPacket.Notification, Body("90%", "h1"), icon1.Length, phone.ServePayload(icon1));
+        await Until(() => svc.Notifications.SingleOrDefault()?.Text == "90%", "update");
+        await Task.Delay(300);
+        Assert.Equal(1, phone.PayloadConnections);
+        Assert.Equal(icon1, svc.Notifications.Single().IconPng);
+
+        // A different icon hash is fetched.
+        await phone.SendAsync(NetworkPacket.Notification, Body("100%", "h2"), icon2.Length, phone.ServePayload(icon2));
+        await Until(() => svc.Notifications.SingleOrDefault()?.IconPng is { Length: 6 }, "new icon");
+        Assert.Equal(2, phone.PayloadConnections);
+        Assert.Equal("100%", svc.Notifications.Single().Text);
+    }
+
+    [Fact]
+    public async Task Idle_unpaired_link_is_closed_but_not_while_pairing()
+    {
+        using var phone = new FakePhone();
+        using var svc = CreateService(phone, out _, unpairedLinkTimeout: TimeSpan.FromMilliseconds(1500));
+        await svc.StartAsync();
+        await phone.ConnectFromAnnouncementAsync(_cts.Token);
+        await Until(() => svc.Devices.Any(d => d.Id == phone.Id && d.IsReachable), "device visible");
+
+        // A pending pair request keeps the link alive past the idle timeout.
+        await phone.SendAsync(NetworkPacket.Pair, new JsonObject { ["pair"] = true, ["timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
+        await Until(() => svc.Devices.SingleOrDefault()?.PairState == PhonePairState.RequestedByPeer, "pair requested");
+        await Task.Delay(2500);
+        Assert.True(svc.Devices.Single().IsReachable);
+
+        // Rejected and idle: the link is dropped.
+        await svc.RejectPairAsync(phone.Id);
+        await Until(() => svc.Devices.Count == 0, "idle unpaired link closed", 8000);
+        await Until(() => phone.Link!.IsClosed, "phone side closed");
+    }
+
+    [Fact]
+    public async Task Oversized_packet_from_unpaired_device_closes_the_link()
+    {
+        using var phone = new FakePhone();
+        using var svc = CreateService(phone, out _);
+        await svc.StartAsync();
+        await phone.ConnectFromAnnouncementAsync(_cts.Token);
+        await Until(() => svc.Devices.Any(d => d.Id == phone.Id && d.IsReachable), "device visible");
+
+        await phone.SendAsync(NetworkPacket.Ping, new JsonObject { ["message"] = new string('x', DeviceLink.UnpairedMaxLineBytes + 10) });
+        await Until(() => svc.Devices.Count == 0, "link closed");
+        await Until(() => phone.Link!.IsClosed, "phone side closed");
     }
 
     [Fact]

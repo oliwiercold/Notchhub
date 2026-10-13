@@ -49,6 +49,7 @@
     <sys:String x:Key="phone.ringSent">Telefon dzwoni</sys:String>
     <sys:String x:Key="phone.pingSent">Wysłano ping</sys:String>
     <sys:String x:Key="phone.clipboardSent">Wysłano schowek</sys:String>
+    <sys:String x:Key="phone.sendFailed">Nie udało się wysłać - sprawdź połączenie z telefonem</sys:String>
     <sys:String x:Key="phone.clipboardEmpty">Schowek jest pusty</sys:String>
     <sys:String x:Key="phone.batteryUnknown">Brak danych o baterii</sys:String>
     <sys:String x:Key="phone.batteryLastKnown">ostatni odczyt</sys:String>

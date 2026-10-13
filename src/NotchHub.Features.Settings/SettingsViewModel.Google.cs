@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -12,7 +11,21 @@ namespace NotchHub.Features.Settings;
 /// <summary>Calendar section — Google Calendar card (client id/secret, connect/disconnect, calendars, default target).</summary>
 public sealed partial class SettingsViewModel
 {
-    private const string CloudConsoleUrl = "https://console.cloud.google.com/apis/credentials";
+    /// <summary>NotchHub ships its own Google OAuth client: one-click sign-in, own client id / secret only under "advanced".</summary>
+    public bool GoogleBuiltIn => _previewBuiltIn ?? BuiltInClients.HasGoogle;
+    private bool? _previewBuiltIn;
+
+    /// <summary>tools/preview only: render the one-click layout although no built-in client is compiled in.</summary>
+    internal void PreviewGoogleBuiltIn(bool value)
+    {
+        _previewBuiltIn = value;
+        OnPropertyChanged(nameof(GoogleBuiltIn));
+        OnPropertyChanged(nameof(GoogleShowClientFields));
+        LoadGoogleStatus();
+    }
+    /// <summary>Client id / secret fields and the how-to: always without a built-in client, otherwise only when "advanced" is open.</summary>
+    public bool GoogleShowClientFields => !GoogleBuiltIn || GoogleAdvancedOpen;
+    public string GoogleAdvancedGlyph => GoogleAdvancedOpen ? "expand_less" : "expand_more";
 
     public ObservableCollection<GoogleCalendarItem> GoogleCalendars { get; } = [];
     [ObservableProperty] private ObservableCollection<Choice> _eventTargetChoices = [];
@@ -25,6 +38,8 @@ public sealed partial class SettingsViewModel
     [ObservableProperty] private bool _canConnectGoogle;
     [ObservableProperty] private bool _canEditGoogleClient = true;
     [ObservableProperty] private bool _googleHelpOpen;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(GoogleShowClientFields), nameof(GoogleAdvancedGlyph))] private bool _googleAdvancedOpen;
+    [ObservableProperty] private string _googleConnectText = "";
     private string? _googleCalendarsKey;
     private string? _eventTargetsKey;
 
@@ -34,7 +49,9 @@ public sealed partial class SettingsViewModel
         var c = AppServices.Calendar;
         var state = c?.GoogleState ?? GoogleConnectionState.NotConfigured;
         // The service sees a typed client id only after the deferred save — treat a typed id as "configured".
-        if (state == GoogleConnectionState.NotConfigured && !string.IsNullOrWhiteSpace(GoogleClientId)) state = GoogleConnectionState.Disconnected;
+        // With a built-in client nothing has to be typed at all.
+        if (state == GoogleConnectionState.NotConfigured && (GoogleBuiltIn || !string.IsNullOrWhiteSpace(GoogleClientId))) state = GoogleConnectionState.Disconnected;
+        GoogleConnectText = Loc.Get(GoogleBuiltIn ? "settings.Calendar.Google.SignIn" : "settings.Calendar.Google.Connect");
         IsGoogleConnected = state == GoogleConnectionState.Connected;
         IsGoogleBusy = state == GoogleConnectionState.Connecting;
         CanConnectGoogle = c is not null && state is GoogleConnectionState.Disconnected or GoogleConnectionState.Error;
@@ -128,13 +145,7 @@ public sealed partial class SettingsViewModel
     }
 
     [RelayCommand] private void ToggleGoogleHelp() => GoogleHelpOpen = !GoogleHelpOpen;
-
-    [RelayCommand]
-    private static void OpenCloudConsole()
-    {
-        try { using (Process.Start(new ProcessStartInfo(CloudConsoleUrl) { UseShellExecute = true })) { } }
-        catch (Exception ex) { Log.Warn("Settings: could not open Google Cloud Console", ex); }
-    }
+    [RelayCommand] private void ToggleGoogleAdvanced() => GoogleAdvancedOpen = !GoogleAdvancedOpen;
 }
 
 public sealed partial class GoogleCalendarItem(GoogleCalendarInfo info, Action<GoogleCalendarItem> toggled) : ObservableObject

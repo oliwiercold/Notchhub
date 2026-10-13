@@ -9,8 +9,9 @@ using NotchHub.UI;
 
 namespace NotchHub.Features.Clipboard;
 
-public partial class ClipboardView : UserControl, ITabView
+public partial class ClipboardView : UserControl, ITabView, IDisposable
 {
+    private readonly ViewLifetime _life;
     private bool _restoring;
     private ClipEntry? _anchor;
     private ClipEntry? _pendingPrimary;
@@ -28,20 +29,28 @@ public partial class ClipboardView : UserControl, ITabView
         vm.SelectionRestore += OnSelectionRestore;
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewTextInput += OnPreviewTextInput;
+        _life = new ViewLifetime(this, vm.OnShown, vm.OnHidden, vm.Release);
     }
 
     public ClipboardViewModel ViewModel => (ClipboardViewModel)DataContext;
 
     public void OnShown()
     {
-        ViewModel.OnShown();
+        _life.Show();
         Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
         {
             if (IsVisible && !IsKeyboardFocusWithin) SearchBox.Focus();
         });
     }
 
-    public void OnHidden() => ViewModel.OnHidden();
+    public void OnHidden() => _life.Hide();
+
+    /// <summary>Called by the shell when it throws a long-hidden view away; a new view is created when the tab opens again.</summary>
+    public void Dispose()
+    {
+        _life.Dispose();
+        _anchor = _pendingPrimary = null;
+    }
 
     // ───────── selection ─────────
 

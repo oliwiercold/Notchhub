@@ -72,28 +72,70 @@ internal sealed class DeviceLink : IDisposable
         }
     }
 
+    /// <summary>Largest packet line accepted from a device that is not paired (pair / identity packets are tiny).</summary>
+    public const int UnpairedMaxLineBytes = 64 * 1024;
+    /// <summary>Largest packet line accepted from a paired device (payloads travel on separate sockets).</summary>
+    public const int PairedMaxLineBytes = 4 * 1024 * 1024;
+
+    /// <summary>Line-length cap, evaluated for every line (so it grows once the device gets paired). Set before <see cref="Start"/>.</summary>
+    public Func<int> MaxLineBytes { get; set; } = static () => UnpairedMaxLineBytes;
+
     private async Task ReadLoopAsync()
     {
         try
         {
-            using var reader = new StreamReader(_ssl, new UTF8Encoding(false), false, 16384, leaveOpen: true);
-            while (!_cts.IsCancellationRequested)
+            await ReadLinesAsync(_ssl, MaxLineBytes, line =>
             {
-                var line = await reader.ReadLineAsync(_cts.Token).ConfigureAwait(false);
-                if (line is null) break;
-                if (line.Length == 0) continue;
+                if (_cts.IsCancellationRequested) return;
                 var packet = NetworkPacket.TryParse(line);
-                if (packet is null) { Log.Debug("KdeConnect: unparsable packet ignored"); continue; }
+                if (packet is null) { Log.Debug("KdeConnect: unparsable packet ignored"); return; }
                 try { PacketReceived?.Invoke(this, packet); }
                 catch (Exception ex) { Log.Error($"KdeConnect: handling {packet.Type} failed", ex); }
-            }
+            }, _cts.Token).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is IOException or ObjectDisposedException or OperationCanceledException or SocketException or AuthenticationException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or OperationCanceledException or SocketException or AuthenticationException or InvalidOperationException or InvalidDataException)
         {
             Log.Debug($"KdeConnect: link {DeviceId} read ended: {ex.Message}");
         }
         catch (Exception ex) { Log.Error($"KdeConnect: link {DeviceId} read loop", ex); }
         finally { Close(); }
+    }
+
+    /// <summary>
+    /// Reads LF-terminated UTF-8 lines and hands each non-empty one to <paramref name="onLine"/>. Throws
+    /// <see cref="InvalidDataException"/> as soon as a line grows past <paramref name="maxLineBytes"/>, so a peer that never
+    /// sends a newline cannot make us buffer without limit. Returns at end of stream.
+    /// </summary>
+    internal static async Task ReadLinesAsync(Stream stream, Func<int> maxLineBytes, Action<string> onLine, CancellationToken ct)
+    {
+        var chunk = new byte[16384];
+        var acc = new byte[4096];
+        var len = 0;
+        while (true)
+        {
+            var n = await stream.ReadAsync(chunk, ct).ConfigureAwait(false);
+            if (n == 0) return;
+            var start = 0;
+            while (start < n)
+            {
+                var nl = Array.IndexOf(chunk, (byte)'\n', start, n - start);
+                var count = (nl < 0 ? n : nl) - start;
+                if (count > 0)
+                {
+                    var max = maxLineBytes();
+                    if ((long)len + count > max) throw new InvalidDataException($"packet line larger than {max} bytes");
+                    if (len + count > acc.Length) Array.Resize(ref acc, Math.Min(max, Math.Max(acc.Length * 2, len + count)));
+                    Buffer.BlockCopy(chunk, start, acc, len, count);
+                    len += count;
+                }
+                if (nl < 0) break;
+                var lineLen = len > 0 && acc[len - 1] == (byte)'\r' ? len - 1 : len;
+                if (lineLen > 0) onLine(Encoding.UTF8.GetString(acc, 0, lineLen));
+                len = 0;
+                if (acc.Length > 64 * 1024) acc = new byte[4096];
+                start = nl + 1;
+            }
+        }
     }
 
     public void Close()

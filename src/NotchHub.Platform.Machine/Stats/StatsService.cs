@@ -10,14 +10,13 @@ using NotchHub.Platform.Machine.Stats.Processes;
 namespace NotchHub.Platform.Machine.Stats;
 
 /// <summary>
-/// System statistics. Samples every 5 s without per-process data in the background, and every 1 s with grouped top
-/// processes while at least one <see cref="RequestLiveUpdates"/> token is alive. All sampling runs on one timer
-/// callback at a time (never overlapping).
+/// System statistics. Samples every 1 s with grouped top processes while at least one <see cref="RequestLiveUpdates"/>
+/// token is alive; otherwise the timer is disarmed (one baseline sample shortly after start, then nothing) so the
+/// collapsed app stays at ~0 % CPU. All sampling runs on one timer callback at a time (never overlapping).
 /// </summary>
 public sealed class StatsService(ISettingsService settings) : IStatsService
 {
     private static readonly TimeSpan LiveInterval = TimeSpan.FromSeconds(1);
-    private static readonly TimeSpan IdleInterval = TimeSpan.FromSeconds(5);
 
     private readonly ISettingsService _settings = settings;
     private readonly object _gate = new();
@@ -52,13 +51,13 @@ public sealed class StatsService(ISettingsService settings) : IStatsService
         lock (_gate)
         {
             if (_disposed) return;
-            // First sample shortly after start so rate counters have a baseline.
+            // One sample shortly after start so rate counters have a baseline; periodic only while a live token exists.
             _timer = new Timer(_ => Tick(), null, TimeSpan.FromMilliseconds(500), CurrentInterval());
         }
         Log.Info($"Stats: started (CPU '{_cpuInfo?.Name}', {_cpuInfo?.Cores}C/{_cpuInfo?.LogicalProcessors}T)");
     }
 
-    private TimeSpan CurrentInterval() => Volatile.Read(ref _liveTokens) > 0 ? LiveInterval : IdleInterval;
+    private TimeSpan CurrentInterval() => Volatile.Read(ref _liveTokens) > 0 ? LiveInterval : Timeout.InfiniteTimeSpan;
 
     public IDisposable RequestLiveUpdates()
     {
@@ -73,7 +72,11 @@ public sealed class StatsService(ISettingsService settings) : IStatsService
     {
         if (Interlocked.Decrement(ref _liveTokens) == 0)
         {
-            lock (_gate) _timer?.Change(IdleInterval, IdleInterval);
+            lock (_gate)
+            {
+                // Re-check under the lock: a new token may have been requested (and re-armed the timer) meanwhile.
+                if (Volatile.Read(ref _liveTokens) == 0) _timer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan); // nobody watching: stop sampling
+            }
         }
     }
 

@@ -60,16 +60,35 @@ public sealed partial class LiveActivityViewModel : ObservableObject
         if (AppServices.Media is { } media)
         {
             // Event based (no polling) and always on: HasActivity drives the shell even while this view is hidden.
-            media.Changed += (_, _) => AppServices.Ui.Post(UpdateMedia);
+            media.Changed += OnMediaChanged;
             UpdateMedia();
         }
-        if (AppServices.Calendar is { } cal) cal.Changed += (_, _) => AppServices.Ui.Post(UpdateMeeting);
-        if (AppServices.Settings is { } settings) settings.Changed += (_, _) => AppServices.Ui.Post(UpdateMeeting);
-        Loc.LanguageChanged += (_, _) => UpdateMeeting();
+        if (AppServices.Calendar is { } cal) cal.Changed += OnMeetingSourceChanged;
+        if (AppServices.Settings is { } settings) settings.Changed += OnMeetingSourceChanged;
+        Loc.LanguageChanged += OnLanguageChanged;
         UpdateMeeting();
     }
 
-    public void OnShown() { IsShown = true; UpdateMeeting(); }
+    private bool _released;
+    private void OnMediaChanged(object? s, EventArgs e) => AppServices.Ui.Post(() => { if (!_released) UpdateMedia(); });
+    private void OnMeetingSourceChanged(object? s, EventArgs e) => AppServices.Ui.Post(() => { if (!_released) UpdateMeeting(); });
+    private void OnLanguageChanged(object? s, EventArgs e) { if (!_released) UpdateMeeting(); }
+
+    /// <summary>Final release when the shell throws the view away: the always-on subscriptions and timers go too.</summary>
+    public void Release()
+    {
+        _released = true;
+        IsShown = false;
+        if (AppServices.Media is { } media) media.Changed -= OnMediaChanged;
+        if (AppServices.Calendar is { } cal) cal.Changed -= OnMeetingSourceChanged;
+        if (AppServices.Settings is { } settings) settings.Changed -= OnMeetingSourceChanged;
+        Loc.LanguageChanged -= OnLanguageChanged;
+        _grace.Stop();
+        _meetingTimer.Stop();
+        Thumbnail = null;
+    }
+
+    public void OnShown() { if (_released) return; IsShown = true; UpdateMeeting(); }
     public void OnHidden() { IsShown = false; UpdateMeeting(); }
 
     // ───────────────────────── media ─────────────────────────

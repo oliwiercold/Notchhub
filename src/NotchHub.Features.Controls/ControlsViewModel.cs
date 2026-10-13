@@ -128,6 +128,16 @@ public sealed partial class ControlsViewModel : ObservableObject
         UpdateMediaTimer();
     }
 
+    /// <summary>Final release when the shell throws the view away.</summary>
+    public void Release()
+    {
+        OnHidden();
+        _hold?.Dispose();
+        _hold = null;
+        _mediaTimer?.Stop();
+        _mediaTimer = null;
+    }
+
     // Coalesce bursts of service events into one UI refresh each.
     private void Schedule(ref int flag, Action refresh)
     {

@@ -33,10 +33,40 @@ app.Dispatcher.InvokeAsync(async () =>
         Console.WriteLine($"round {round}: Brush.Primary={b.Color} expected={map["Primary"]} frozen={b.IsFrozen}");
         if ((b.Color.A, b.Color.R, b.Color.G, b.Color.B) != (map["Primary"].A, map["Primary"].R, map["Primary"].G, map["Primary"].B)) { failures++; Console.WriteLine($"  mismatch {b.Color} vs {map["Primary"]}"); }
     }
+    // Windows accent source must follow accent changes (simulated: stale SourceColor + the accent check the
+    // UserPreferenceChanged / wallpaper handlers run). Read-only: the real accent is never changed.
+    try
+    {
+        NotchHub.Core.AppPaths.Initialize(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nh-theme-harness"));
+        var settings = new NotchHub.Core.Settings.SettingsService();
+        settings.Update(s => s.Appearance.Source = ColorSource.WindowsAccent);
+        var svc = new ThemeService(settings, new NoWallpaper());
+        await svc.StartAsync();
+        var accent = svc.SourceColor;
+        Console.WriteLine($"accent source: {accent}");
+        typeof(ThemeService).GetProperty("SourceColor")!.SetValue(svc, Color.FromRgb(1, 2, 3));
+        typeof(ThemeService).GetMethod("CheckAccent", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(svc, null);
+        for (var i = 0; i < 40 && svc.SourceColor == Color.FromRgb(1, 2, 3); i++) await Task.Delay(50);
+        var okAccent = svc.SourceColor == accent;
+        Console.WriteLine($"accent re-check: {svc.SourceColor} expected {accent} -> {(okAccent ? "OK" : "FAIL")}");
+        if (!okAccent) failures++;
+        svc.Dispose();
+    }
+    catch (Exception ex) { failures++; Console.WriteLine("accent check: " + ex); }
     app.Shutdown(failures == 0 ? 0 : 1);
 });
 app.Run();
 Console.WriteLine(failures == 0 ? "THEME OK" : $"THEME FAILURES: {failures}");
 
 return failures;
+}
+
+sealed class NoWallpaper : NotchHub.Core.Contracts.IWallpaperService
+{
+    public string? CurrentPath => null;
+    public uint? SolidColor => 0xFF336699;
+    public event EventHandler? Changed { add { } remove { } }
+    public Task<NotchHub.Core.Contracts.WallpaperPixels?> GetPixelsAsync(int maxSize = 128, CancellationToken ct = default) => Task.FromResult<NotchHub.Core.Contracts.WallpaperPixels?>(null);
+    public Task StartAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public void Dispose() { }
 }

@@ -136,8 +136,10 @@ public partial class NotchWindow : Window, IShell
                 NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE);
             return;
         }
-        var mon = NativeMethods.GetNotchMonitor(_settings.Current.Notch.MonitorIndex);
+        var monitorIndex = _settings.Current.Notch.MonitorIndex;
+        var mon = NativeMethods.GetNotchMonitor(monitorIndex);
         if (mon is null) return;
+        _placedMonitor = monitorIndex;
         int w = (int)Math.Round(WindowWidth * mon.Scale), h = (int)Math.Round(WindowHeight * mon.Scale);
         int x = mon.Bounds.Left + (mon.Bounds.Width - w) / 2, y = mon.Bounds.Top;
         NativeMethods.SetWindowPos(_hwnd, NativeMethods.HWND_TOPMOST, x, y, w, h, NativeMethods.SWP_NOACTIVATE);
@@ -155,9 +157,12 @@ public partial class NotchWindow : Window, IShell
         if (_hwnd != IntPtr.Zero) NativeMethods.SetExStyleFlag(_hwnd, NativeMethods.WS_EX_NOACTIVATE, !on);
     }
 
+    private int? _placedMonitor;
+
     private void OnSettingsChanged()
     {
-        Place();
+        // re-place only when the monitor changed (Changed fires for every settings write)
+        if (_placedMonitor != _settings.Current.Notch.MonitorIndex) Place();
         if (_state == ShellState.Collapsed) ApplyGeometry();
         UpdatePhoneChip();
         UpdateFullscreen(_fullscreen);
@@ -277,6 +282,7 @@ public partial class NotchWindow : Window, IShell
             if (prev == ShellState.Hidden || !IsVisible) { Show(); Place(); }
             ApplyGeometry();
         }
+        if (prev == ShellState.Expanded && next != ShellState.Expanded) OnPanelClosed();
         if (prev != next) _shellStateChanged?.Invoke(this, EventArgs.Empty);
     }
 

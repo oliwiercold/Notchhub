@@ -11,7 +11,8 @@ namespace NotchHub.Services.Calendar;
 
 /// <summary>
 /// Google Calendar part: OAuth 2.0 installed-app flow (PKCE S256 + state, loopback redirect on 127.0.0.1) with the
-/// user's own Desktop client from <see cref="CalendarSettings"/>, DPAPI-protected refresh token, Calendar API v3
+/// user's own Desktop client from <see cref="CalendarSettings"/> or, when none is set, the built-in client from
+/// <see cref="BuiltInClients"/> (one-click sign-in), DPAPI-protected refresh token, Calendar API v3
 /// calendarList/events (window −7 … +60 days) merged with local + ICS events, and insert/delete of events.
 /// </summary>
 public sealed partial class CalendarService
@@ -23,7 +24,8 @@ public sealed partial class CalendarService
     private GoogleStoredToken? _googleToken;
     private string? _accessToken;
     private DateTimeOffset _accessExpiry;
-    private string _googleClientId = "";
+    private string _googleClientId = "";      // effective client: the user's own, else the built-in one ("" = not configured)
+    private string? _googleClientSecret;      // secret belonging to _googleClientId (Google desktop clients use a non-confidential one)
     private HashSet<string> _googleHidden = new(StringComparer.Ordinal);
     private string? _googleSettingsKey;
     private bool _googleConnecting;
@@ -70,18 +72,19 @@ public sealed partial class CalendarService
     public async Task<bool> ConnectGoogleAsync(CancellationToken ct = default)
     {
         string clientId;
+        string? secret;
         CancellationTokenSource connectCts;
         lock (_gate)
         {
             if (_disposed || _googleClientId.Length == 0 || _googleConnecting) return false;
             clientId = _googleClientId;
+            secret = _googleClientSecret;
             _googleConnecting = true;
             _googleConnectFailed = false;
             _googleError = null;
             _connectCts = connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _cts.Token);
         }
         RaiseChanged();
-        var secret = _settings.Current.Calendar?.GoogleClientSecret?.Trim();
         var language = _settings.Current.Language ?? "pl";
         string? failure = null;
         try
@@ -314,19 +317,35 @@ public sealed partial class CalendarService
         lock (_gate) _googleToken = token;
     }
 
-    /// <summary>Copies client id + hidden calendars from the settings. True when something changed.</summary>
+    /// <summary>
+    /// The OAuth client to use: the user's own from the settings when set, else the built-in one when NotchHub ships
+    /// one, else none (<c>""</c>). The secret always belongs to the returned client.
+    /// </summary>
+    internal static (string ClientId, string? Secret) ResolveGoogleClient(CalendarSettings? cal, string builtInId, string builtInSecret)
+    {
+        var own = cal?.GoogleClientId?.Trim() ?? "";
+        if (own.Length > 0)
+        {
+            var ownSecret = cal?.GoogleClientSecret?.Trim();
+            return (own, string.IsNullOrEmpty(ownSecret) ? null : ownSecret);
+        }
+        return builtInId.Length > 0 ? (builtInId, builtInSecret.Length > 0 ? builtInSecret : null) : ("", null);
+    }
+
+    /// <summary>Copies the effective client + hidden calendars from the settings. True when something changed.</summary>
     private bool SyncGoogleSettings()
     {
         var cal = _settings.Current.Calendar;
-        var clientId = cal?.GoogleClientId?.Trim() ?? "";
+        var (clientId, secret) = ResolveGoogleClient(cal, BuiltInClients.GoogleClientId, BuiltInClients.GoogleClientSecret);
         var hidden = new HashSet<string>(cal?.GoogleHiddenCalendars ?? [], StringComparer.Ordinal);
-        var key = clientId + "\n" + string.Join("\n", hidden.Order(StringComparer.Ordinal));
+        var key = clientId + "\n" + secret + "\n" + string.Join("\n", hidden.Order(StringComparer.Ordinal));
         var forget = false;
         lock (_gate)
         {
             if (key == _googleSettingsKey) return false;
             _googleSettingsKey = key;
             _googleClientId = clientId;
+            _googleClientSecret = secret;
             _googleHidden = hidden;
             if (_googleToken is not null && clientId.Length > 0 && _googleToken.ClientId != clientId)
             {
@@ -467,10 +486,12 @@ public sealed partial class CalendarService
         try
         {
             GoogleStoredToken? token;
+            string? secret;
             lock (_gate)
             {
                 token = GoogleActive ? _googleToken : null;
                 if (token is null) return null;
+                secret = _googleClientSecret; // GoogleActive: the token belongs to the effective client
                 if (!forceRefresh && _accessToken is not null && _accessExpiry > _time.GetUtcNow().AddMinutes(1)) return _accessToken;
             }
 
@@ -480,7 +501,6 @@ public sealed partial class CalendarService
                 ["refresh_token"] = token.RefreshToken,
                 ["grant_type"] = "refresh_token",
             };
-            var secret = _settings.Current.Calendar?.GoogleClientSecret?.Trim();
             if (!string.IsNullOrEmpty(secret)) form["client_secret"] = secret;
             var result = await PostTokenAsync(form, ct).ConfigureAwait(false);
 

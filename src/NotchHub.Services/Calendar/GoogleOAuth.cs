@@ -21,7 +21,11 @@ internal static class GoogleOAuth
     public const string AuthEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
     public const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     public const string RevokeEndpoint = "https://oauth2.googleapis.com/revoke";
-    public const string Scope = "https://www.googleapis.com/auth/calendar openid email";
+    /// <summary>
+    /// Narrow scopes: calendar.calendarlist.readonly for calendarList.list, calendar.events for events list/insert/delete
+    /// (no access to calendar settings, ACLs or creating/deleting calendars).
+    /// </summary>
+    public const string Scope = "https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.calendarlist.readonly openid email";
 
     /// <summary>A high-entropy code verifier: 64 unreserved characters (RFC 7636 §4.1 allows 43–128).</summary>
     public static string CreateCodeVerifier() => Base64Url(RandomNumberGenerator.GetBytes(48));

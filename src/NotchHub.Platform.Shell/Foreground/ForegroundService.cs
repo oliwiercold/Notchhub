@@ -29,6 +29,7 @@ public sealed class ForegroundService : IForegroundService
     private nint _ownWindow;
     private nint _foreground;
     private nint _lastExternal;
+    private nint _restoredTarget; // window re-activated by the last successful RestorePreviousForeground (paste target)
     private string? _lastExternalName;
     private volatile bool _fullscreen;
     private bool _evaluatePending;
@@ -123,12 +124,26 @@ public sealed class ForegroundService : IForegroundService
         }
 
         var sta = _lease?.Thread;
-        return sta is not null ? sta.Invoke(Activate, false, TimeSpan.FromSeconds(1)) : Activate();
+        var ok = sta is not null ? sta.Invoke(Activate, false, TimeSpan.FromSeconds(1)) : Activate();
+        Interlocked.Exchange(ref _restoredTarget, ok ? target : 0);
+        return ok;
     }
 
-    /// <summary>Sends Ctrl+V to the foreground window via SendInput (releasing held modifiers first).</summary>
+    /// <summary>
+    /// Sends Ctrl+V to the foreground window via SendInput (releasing held modifiers first). Only when the window
+    /// re-activated by <see cref="RestorePreviousForeground"/> (or another window of the same process, e.g. its dialog)
+    /// is still in the foreground; otherwise the keystroke could land in Explorer / the desktop / an unrelated app.
+    /// </summary>
     public unsafe void SendPasteKeystroke()
     {
+        var target = Interlocked.Exchange(ref _restoredTarget, 0);
+        var current = Win32.GetForegroundWindow();
+        if (target == 0 || current == 0 || (current != target && !SameProcess(current, target)))
+        {
+            Log.Info("Foreground: paste target is no longer in the foreground; Ctrl+V skipped");
+            return;
+        }
+
         var inputs = stackalloc INPUT[10];
         var n = 0;
         foreach (var vk in new[] { VK_SHIFT, VK_MENU, VK_LWIN, VK_RWIN })
@@ -141,6 +156,13 @@ public sealed class ForegroundService : IForegroundService
         inputs[n++] = Key(VK_CONTROL, up: true);
         var sent = Win32.SendInput((uint)n, inputs, sizeof(INPUT));
         if (sent != n) Log.Warn($"Foreground: SendInput sent {sent}/{n} events ({Win32.LastError()})");
+    }
+
+    private static bool SameProcess(nint a, nint b)
+    {
+        Win32.GetWindowThreadProcessId(a, out var pa);
+        Win32.GetWindowThreadProcessId(b, out var pb);
+        return pa != 0 && pa == pb;
     }
 
     private static INPUT Key(ushort vk, bool up) => new()

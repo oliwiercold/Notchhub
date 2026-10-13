@@ -63,6 +63,8 @@ public sealed class ThemeService : IBackgroundService
         _appearanceKey = AppearanceKey(_settings.Current.Appearance);
         _settings.Changed += OnSettingsChanged;
         _wallpaper.Changed += OnWallpaperChanged;
+        // accent color changes (Settings > Personalization > Colors, or "pick accent from background") arrive as WM_SETTINGCHANGE
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         return RefreshAsync();
     }
 
@@ -120,6 +122,7 @@ public sealed class ThemeService : IBackgroundService
         if (!_started) return;
         _settings.Changed -= OnSettingsChanged;
         _wallpaper.Changed -= OnWallpaperChanged;
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         _started = false;
     }
 
@@ -137,7 +140,24 @@ public sealed class ThemeService : IBackgroundService
         var src = _settings.Current.Appearance.Source;
         // candidates are also shown in settings, so recompute even for non-wallpaper sources
         if (src is ColorSource.WallpaperDominant or ColorSource.WallpaperAverage) RefreshAsync().Forget("ThemeService.wallpaper");
-        else EnsureWallpaperColorsAsync().Forget("ThemeService.wallpaper");
+        else
+        {
+            EnsureWallpaperColorsAsync().Forget("ThemeService.wallpaper");
+            // the Windows accent may follow the wallpaper ("automatically pick an accent color")
+            if (src == ColorSource.WindowsAccent) RefreshAsync().Forget("ThemeService.wallpaper-accent");
+        }
+    }
+
+    private void OnUserPreferenceChanged(object? sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category is Microsoft.Win32.UserPreferenceCategory.General or Microsoft.Win32.UserPreferenceCategory.Color) CheckAccent();
+    }
+
+    /// <summary>Re-applies the scheme when the source is the Windows accent and that color changed (cheap; any thread).</summary>
+    internal void CheckAccent()
+    {
+        if (!_started || _settings.Current.Appearance.Source != ColorSource.WindowsAccent) return;
+        if (AccentColor() is { } accent && accent != SourceColor) RefreshAsync().Forget("ThemeService.accent");
     }
 
     private static string AppearanceKey(AppearanceSettings a) => string.Join('|',

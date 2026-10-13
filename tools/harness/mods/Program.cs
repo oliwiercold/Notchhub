@@ -187,9 +187,117 @@ public static class Program
         controls.OnHidden();
 
         foreach (var v in views.Values.OfType<ITabView>()) v.OnHidden();
+
+        await XamlSafetyChecksAsync();
+        await CommandChecksAsync();
+
         ModLoader.ShutdownAll();
         foreach (var w in windows) w.Close();
         theme.Dispose();
+    }
+
+    // ── widget view.xaml goes through the restricted loader (WidgetXaml) ──
+    private static Task XamlSafetyChecksAsync()
+    {
+        var wx = typeof(ModLoader).Assembly.GetType("NotchHub.UI.Modding.WidgetXaml", true)!;
+        var load = wx.GetMethod("Load", BindingFlags.Public | BindingFlags.Static)!;
+        var dir = Path.Combine(Path.GetTempPath(), "nh-xaml-safety");
+        Directory.CreateDirectory(dir);
+        var marker = Path.Combine(dir, "pwned.txt");
+        try { File.Delete(marker); } catch { }
+
+        foreach (var ok in new[]
+                 {
+                     Path.Combine(_repo, "mods", "examples", "kursy-nbp", "view.xaml"),
+                     Path.Combine(_repo, "mods", "examples", "system-script", "view.xaml"),
+                     Path.Combine(_repo, "templates", "widget-template", "view.xaml"),
+                 })
+        {
+            try { Check(load.Invoke(null, [ok]) is FrameworkElement, $"safe loader accepts {Path.GetFileName(Path.GetDirectoryName(ok))}"); }
+            catch (TargetInvocationException ex) { Fail($"safe loader rejected {ok}: {ex.InnerException?.Message}"); }
+        }
+
+        const string Head = """<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" """;
+        var bad = new Dictionary<string, string>
+        {
+            ["ObjectDataProvider + System.IO"] = Head + """xmlns:io="clr-namespace:System.IO;assembly=System.Runtime"><Grid.Resources><ObjectDataProvider x:Key="p" ObjectType="{x:Type io:File}" MethodName="WriteAllText"><ObjectDataProvider.MethodParameters><x:Static Member="x:Null"/></ObjectDataProvider.MethodParameters></ObjectDataProvider></Grid.Resources></Grid>""",
+            ["ObjectDataProvider (presentation ns only)"] = Head + """><Grid.Resources><ObjectDataProvider x:Key="p" ObjectType="{x:Type TextBlock}" MethodName="ToString"/></Grid.Resources></Grid>""",
+            ["System.Diagnostics xmlns"] = Head + """xmlns:d="clr-namespace:System.Diagnostics;assembly=System.Diagnostics.Process"><TextBlock Text="{x:Static d:Process.ProcessName}"/></Grid>""",
+            ["XmlDataProvider"] = Head + """><Grid.Resources><XmlDataProvider x:Key="x" Source="http://127.0.0.1:9/x.xml"/></Grid.Resources></Grid>""",
+            ["event handler"] = Head + """><Button Click="OnClick"/></Grid>""",
+            ["EventSetter"] = Head + """><Grid.Resources><Style TargetType="Button"><EventSetter Event="Click" Handler="OnClick"/></Style></Grid.Resources></Grid>""",
+            ["x:Code"] = Head + """><x:Code><![CDATA[ void F() { } ]]></x:Code></Grid>""",
+            ["x:Class"] = Head.Replace("<Grid ", "<Grid x:Class=\"Evil.View\" ") + "></Grid>",
+            ["ResourceDictionary.Source"] = Head + """><Grid.Resources><ResourceDictionary Source="other.xaml"/></Grid.Resources></Grid>""",
+            ["Frame"] = Head + """><Frame Source="http://127.0.0.1:9/"/></Grid>""",
+            ["Hyperlink.NavigateUri"] = Head + """><TextBlock><Hyperlink NavigateUri="file:///C:/Windows/notepad.exe">x</Hyperlink></TextBlock></Grid>""",
+            ["NotchHub.UI.Modding xmlns"] = Head + """xmlns:m="clr-namespace:NotchHub.UI.Modding;assembly=NotchHub.UI"><TextBlock Text="{x:Static m:ModLoader.ModFolders}"/></Grid>""",
+            ["sys xmlns"] = Head + """xmlns:sys="clr-namespace:System;assembly=System.Runtime"><TextBlock Text="{x:Static sys:Environment.UserName}"/></Grid>""",
+            ["DTD"] = """<!DOCTYPE Grid [ <!ENTITY e "x"> ]>""" + Head + "></Grid>",
+        };
+        foreach (var (name, xaml) in bad)
+        {
+            var file = Path.Combine(dir, "view.xaml");
+            File.WriteAllText(file, xaml);
+            try
+            {
+                load.Invoke(null, [file]);
+                Fail($"safe loader ACCEPTED unsafe view: {name}");
+            }
+            catch (TargetInvocationException ex)
+            {
+                var inner = ex.InnerException!;
+                Check(inner is InvalidDataException or System.Xml.XmlException, $"safe loader rejects {name}: {inner.GetType().Name}: {inner.Message}");
+            }
+        }
+        Check(!File.Exists(marker), "no side effect from rejected views");
+        return Task.CompletedTask;
+    }
+
+    // ── command widgets: stderr flood must not deadlock, a hung command is killed after 20 s ──
+    private static async Task CommandChecksAsync()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "nh-cmd-checks");
+        Directory.CreateDirectory(dir);
+        var pidFile = Path.Combine(dir, "pid.txt");
+        try { File.Delete(pidFile); } catch { }
+        var widgetType = typeof(ModLoader).Assembly.GetType("NotchHub.UI.Modding.WidgetMod", true)!;
+        var ctxType = typeof(ModLoader).Assembly.GetType("NotchHub.UI.Modding.ModContext", true)!;
+
+        async Task<WidgetDataContext> Run(string id, string script, int waitSeconds)
+        {
+            var m = new ModManifest
+            {
+                Id = id, Name = id, Kind = "widget",
+                Tile = new ManifestTile { Title = id },
+                Data = new ManifestData { Command = "powershell.exe", Args = ["-NoProfile", "-NonInteractive", "-Command", script], IntervalSeconds = 3600 },
+            };
+            var ctx = Activator.CreateInstance(ctxType, id, dir)!;
+            var w = Activator.CreateInstance(widgetType, BindingFlags.Public | BindingFlags.Instance, null, [m, dir, ctx, AppServices.Settings], null)!;
+            var dc = (WidgetDataContext)widgetType.GetField("_context", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(w)!;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            await Task.Delay(300);
+            while (dc.IsLoading && sw.Elapsed < TimeSpan.FromSeconds(waitSeconds)) await Task.Delay(200);
+            ((IDisposable)w).Dispose();
+            Console.WriteLine($"cmd {id}: {sw.ElapsedMilliseconds} ms data={(dc.Data is null ? "-" : "yes")} error={dc.Error ?? "-"}");
+            return dc;
+        }
+
+        var flood = await Run("stderr-flood", "[Console]::Error.Write('e' * 300000); [Console]::Out.Write('{\"ok\":1}')", 15);
+        Check(flood.Data is not null && flood.Error is null && !flood.IsLoading, "command writing 300 KB to stderr still returns its JSON");
+
+        var hang = await Run("hang", $"$PID | Set-Content -LiteralPath '{pidFile}'; Start-Sleep -Seconds 90", 30);
+        Check(hang.Error is { } e && e.Contains("20 s") && !hang.IsLoading, $"hung command times out ({hang.Error})");
+        await Task.Delay(500);
+        if (File.Exists(pidFile) && int.TryParse(File.ReadAllText(pidFile).Trim(), out var pid))
+        {
+            bool alive;
+            try { using var p = System.Diagnostics.Process.GetProcessById(pid); alive = !p.HasExited; }
+            catch (ArgumentException) { alive = false; }
+            Check(!alive, $"hung command process {pid} was killed");
+        }
+        else Fail("hang test: pid file not written");
+        foreach (var t in ModRegistry.Tiles.Where(t => t.ModId is "stderr-flood" or "hang").ToList()) ModRegistry.Tiles.Remove(t);
     }
 
     private static object FindPomodoro()

@@ -54,4 +54,4 @@ These notes follow kdeconnect-kde master (`core/backends/lan/lanlinkprovider.cpp
 | `kdeconnect.notification.request` `{request:true}` / `{cancel:id}` | out | request all notifications / dismiss one |
 | `kdeconnect.notification.reply {requestReplyId, message}`, `.action {key, action}` | out | reply / invoke an action |
 | `kdeconnect.findmyphone.request {}`, `kdeconnect.ping {message?}` | out | ring / ping |
-| `kdeconnect.clipboard {content}`, `kdeconnect.clipboard.connect {content, timestamp}` | in/out | `ClipboardReceived`. A `clipboard.connect` with timestamp 0 is ignored |
+| `kdeconnect.clipboard {content}`, `kdeconnect.clipboard.connect {content, timestamp}` | in/out | `ClipboardReceived`. A `clipboard.connect` is applied only when its timestamp is newer than the last clipboard change we know of (service start, PC text sent, phone text applied) |

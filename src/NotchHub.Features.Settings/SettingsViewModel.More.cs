@@ -490,7 +490,7 @@ public sealed partial class SettingsViewModel
     public string VersionLabel => "v" + AppVersion;
 
     private const string RepoUrl = "https://github.com/oliwiercold/NotchHub";
-    private const string WebsiteUrl = "https://oliwiercold.github.io/NotchHub";
+    private const string WebsiteUrl = "https://oliwiercold.github.io/Notchhub";
     private const string BuyMeACoffeeUrl = "https://www.buymeacoffee.com/gimpostin";
 
     private static string ReadVersion()
@@ -523,7 +523,14 @@ public sealed partial class SettingsViewModel
         [
             ("Polski", "pl"), ("English", "en"), (Loc.Get("settings.General.LanguageAuto"), "auto"),
         ], S.Language, v => Save(s => s.Language = (string)v), v => "");
-        StartWithWindows = S.General.StartWithWindows;
+        // The Run key (and Windows' "Startup apps" toggle) is the source of truth; settings.json only mirrors it,
+        // so a change made outside NotchHub (Task Manager, installer upgrade) is shown and not reverted on next launch.
+        bool live = S.General.StartWithWindows;
+        try { live = AppServices.Autostart?.IsEnabled ?? live; }
+        catch (Exception ex) { Log.Warn("Settings: autostart state read failed", ex); }
+        StartWithWindows = live;
+        if (live != S.General.StartWithWindows)
+            AppServices.Ui.Post(() => { if (S.General.StartWithWindows != live) Save(s => s.General.StartWithWindows = live); });
     }
 
     partial void OnStartWithWindowsChanged(bool value) => Save(s => s.General.StartWithWindows = value);

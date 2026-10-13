@@ -1,0 +1,210 @@
+[
+ {
+  "file": "src/NotchHub.KdeConnect/PhoneService.cs",
+  "line": 692,
+  "severity": "high",
+  "title": "kdeconnect.clipboard.connect overwrites the PC clipboard with the phone's stale clipboard on every reconnect",
+  "scenario": "Android's ClipboardPlugin sends kdeconnect.clipboard.connect {content, timestamp} each time a link is created, and timestamp is the time of the phone's last copy. OnPacket only drops the packet when timestamp == 0, then raises ClipboardReceived, and App.xaml.cs:176 calls Clipboard.AddExternal(text, Phone, setSystemClipboard: true). Example: the phone last copied at 09:00 and the user copies something on the PC at 14:00. Then the phone drops Wi-Fi, the PC resumes from sleep, or an announce makes the phone reopen the link (PhoneService's own comments say this happens often). The PC's system clipboard is silently replaced with the 09:00 phone text, and a paste puts the wrong content in. kdeconnect-kde ignores a connect packet whose timestamp is older than the local clipboard's last update.",
+  "fix": "Track the time of the last clipboard change in PhoneService: a long _clipboardStampMs, set to now on every SendClipboardAsync (that is, every PC copy that gets forwarded) and to the packet timestamp, or now, on every applied kdeconnect.clipboard. For ClipboardConnect, apply the content only when timestamp > _clipboardStampMs, then store the timestamp. Also skip it when the content equals the last text sent or received. A cleaner option is for IClipboardService to expose the last local copy time so the comparison uses it."
+ },
+ {
+  "file": "src/NotchHub.KdeConnect/Protocol/DeviceLink.cs",
+  "line": 82,
+  "severity": "high",
+  "title": "Unbounded packet line in the read loop: any unpaired LAN host can grow memory without limit",
+  "scenario": "For a deviceId that is not paired, LinkHandshake.Validator (line 239) accepts any self-signed certificate whose CN equals the claimed deviceId, so any machine on the LAN can complete TLS to port 1716. After FinishAsync, ReadLoopAsync calls StreamReader.ReadLineAsync, which has no length limit. A peer that streams bytes without '\\n' makes the StringBuilder grow to gigabytes (2 bytes per char) until the system pages or an OutOfMemoryException hits the whole app. The packet only reaches OnPacket, where unpaired packets are dropped, after the full line has been buffered. A buggy phone build sending a huge packet has the same effect. Only the plain-text identity line is capped, at 8 KB.",
+  "fix": "Replace StreamReader.ReadLineAsync with a bounded line reader over _ssl, for example a byte buffer that searches for '\\n' with a cap. Use a small cap while the device is unpaired (such as 64 KB, which is enough for pair and identity) and a larger one for paired devices (such as 4 MB; payloads travel on separate sockets). When the cap is exceeded, log it at Debug and Close() the link. One option: DeviceLink takes Func<int> maxLineBytes, and PhoneService supplies it from d.Pair."
+ },
+ {
+  "file": "src/NotchHub.Platform.Media/Media/Spotify/SpotifyClient.cs",
+  "line": 196,
+  "severity": "high",
+  "title": "Spotify loopback listener: one idle or reset browser connection aborts sign-in",
+  "scenario": "WaitForCallbackAsync accepts connections one at a time. ReadRequestLineAsync cancels its read after 10 s, and that OperationCanceledException is not caught in the loop, so it leaves WaitForCallbackAsync. SignInAsync (line 153) turns it into SpotifyException(\"timeout\") because the outer ct is not cancelled. Chromium browsers (Edge, Chrome) often open a speculative or preconnect socket to the redirect host that never sends a request. If that socket is accepted first, sign-in fails with 'timeout' after 10 s, and the real /callback request waiting in the backlog is never read. If the browser resets the idle socket instead, ReadAsync throws IOException, which is also uncaught (RespondAsync only covers writes). MediaService reports that as the generic 'unknown' error. The Google LoopbackReceiver (GoogleOAuth.cs:150-156,189-192) already handles both cases.",
+  "fix": "In ReadRequestLineAsync, catch OperationCanceledException when !ct.IsCancellationRequested and return null, as GoogleOAuth.LoopbackReceiver does. In WaitForCallbackAsync, wrap the read and the respond in try/catch (IOException or SocketException) and continue. A better fix is to stop serializing: handle each accepted client in its own task and complete a TaskCompletionSource on the first valid /callback, so one idle socket cannot block the real request."
+ },
+ {
+  "file": "src/NotchHub.Platform.Media/Media/Spotify/SpotifyClient.cs",
+  "line": 304,
+  "severity": "medium",
+  "title": "Token refresh racing SignOut or re-sign-in brings back a deleted session or overwrites the new refresh token",
+  "scenario": "GetAccessTokenAsync reads `refresh`, releases _lock, and awaits PostTokenAsync. SignOut() takes neither _tokenLock nor checks a generation. Spotify rotates refresh tokens on PKCE refresh. Case 1: the user clicks Disconnect while a refresh is in flight, for example ValidateSessionAsync at start-up, which uses CancellationToken.None. SignOut nulls _refreshToken and deletes the file. The refresh then returns, `rotated = fresh.RefreshToken != _refreshToken (null)` is true, _refreshToken is set again, and Persist() writes spotify-session.bin back. The app shows Disconnected, but HasSession is true and the next start reconnects the account the user signed out of. Case 2: SignInAsync with a different account finishes while an old refresh is in flight. The old account's rotated token then overwrites the new one.",
+  "fix": "After the await, inside lock(_lock), check that _refreshToken == refresh (the value captured before the request) and _clientId == clientId. If either changed, discard the result and throw SpotifyException(\"not_connected\", sessionLost: true) without updating _accessToken or calling Persist(). Alternatively, keep an int _sessionGen bumped by SignOut, Load and SignInAsync, and compare it."
+ },
+ {
+  "file": "src/NotchHub.KdeConnect/PhoneService.cs",
+  "line": 879,
+  "severity": "medium",
+  "title": "Notification icon re-downloaded over a new TLS connection on every notification update",
+  "scenario": "Android attaches the app-icon payload to every kdeconnect.notification packet, including updates to an existing notification. HandleNotification starts DownloadIconAsync whenever p.HasPayload is true, even when the existing notification already has IconPng (line 871 copies the old icon). An ongoing notification that updates every second (download or upload progress, navigation, a media player, a timer) causes a TCP connect, an RSA TLS handshake and an icon download every second, on both the PC and the phone. That wastes CPU and phone battery for as long as the notification lives. kdeconnect-kde caches by payloadHash for this reason.",
+  "fix": "Download only when the notification is new or has no icon: `if (p.HasPayload && _local is { } local && (isNew || existingIcon is null))`, where existingIcon is captured under _gate before RemoveAt. Optionally also compare p.GetString(\"payloadHash\") with a hash stored per notification and re-download only when it changes. When no download is needed and announce is true, raise NotificationPosted directly."
+ },
+ {
+  "file": "src/NotchHub.KdeConnect/PhoneService.cs",
+  "line": 558,
+  "severity": "medium",
+  "title": "Unpaired links never time out, so 42 idle connections stop any new phone from pairing",
+  "scenario": "AttachLink keeps every unpaired TLS link until the peer closes it, and refuses new unpaired devices once MaxUnpairedDevices (42) is reached. No idle or handshake deadline applies after FinishAsync, and OnPacket answers unpaired traffic with pair=false without ever closing the link. Any host on the same Wi-Fi (or a misbehaving client) can open 42 links with random valid deviceIds and self-signed certs and leave them idle. From then until NotchHub restarts, the user's real phone is rejected at line 560 and cannot be discovered or paired, and no error appears in the UI.",
+  "fix": "Give unpaired links a lifetime. In AttachLink, when d.Pair != Paired, start a timer (for example 60 s, extended while a pair request is pending, as PairTimeout is) that closes the link if it is still unpaired. When the limit is reached, evict the oldest unpaired link that has no pending pair request instead of rejecting the newcomer. Optionally rate-limit pair requests per address so repeated pair=false/true toggles cannot spam PairRequested HUDs."
+ },
+ {
+  "file": "src/NotchHub.App/App.xaml.cs",
+  "line": 218,
+  "severity": "high",
+  "title": "Autostart is forced back to the settings value on every launch and every settings change, so it overrides the installer's choice and the user's Task Manager choice",
+  "scenario": "ApplySettings runs at startup (line 118) and again on every settings.Changed (line 200). Each time it calls SetEnabled(StartWithWindows) whenever IsEnabled differs from the setting. This causes three problems. (a) The installer offers an 'autostart' option and writes HKCU\\...\\Run\\NotchHub, but a fresh settings.json has StartWithWindows=false (the AppSettings default), so the first launch deletes the Run value. The installer option silently does nothing. (b) The user turns NotchHub off in Task Manager > Startup apps, which sets the StartupApproved disabled flag, so IsEnabled becomes false while the setting is still true. The next launch, or any settings write, calls SetEnabled(true), which rewrites the approved bytes to enabled and undoes the user's choice. (c) NotchWindow.SelectKey saves LastTab on every tab switch. That fires settings.Changed, so even switching tabs re-applies autostart and reads the registry.",
+  "fix": "Track the last applied value, the same way _language is tracked. Add a field `bool? _autostartApplied`. On the first ApplySettings, reconcile from the registry into the setting: if autostart.IsEnabled != s.General.StartWithWindows, call settings.Update(x => x.General.StartWithWindows = autostart.IsEnabled) and store that value without calling SetEnabled. Also keep honouring an --autostart / installer-seeded flag. After that, call SetEnabled only when s.General.StartWithWindows != _autostartApplied, i.e. when the user actually flipped the toggle, then update _autostartApplied. Never call SetEnabled just because IsEnabled differs."
+ },
+ {
+  "file": "src/NotchHub.UI/Modding/WidgetMod.cs",
+  "line": 170,
+  "severity": "high",
+  "title": "Command widgets deadlock on stderr output and leak a hung child process on every poll",
+  "scenario": "RunCommandAsync sets RedirectStandardError = true but never reads stderr. Take a widget whose script writes more than the pipe buffer (about 4 KB) to stderr, for example a Python script printing warnings or a traceback. The child blocks writing stderr, so StandardOutput.ReadToEndAsync never completes. After 20 s the CancellationTokenSource cancels and OperationCanceledException is thrown. `using var p` only disposes the Process handle and does not kill the child. The poll timer (minimum 15 s, and always running for tile widgets) starts another process each interval. The result is an unbounded number of stuck python.exe/node.exe processes and steadily growing memory. A script that simply hangs leaks the same way.",
+  "fix": "Either do not redirect stderr (RedirectStandardError = false), or drain it concurrently: `var errTask = p.StandardError.ReadToEndAsync(cts.Token);`, read stdout, then await both. Wrap the reads in try/catch (OperationCanceledException) and call `try { p.Kill(entireProcessTree: true); } catch { }` before rethrowing. Optionally cap the stdout length, for example 1 MB."
+ },
+ {
+  "file": "src/NotchHub.App/Shell/NotchWindow.Tabs.cs",
+  "line": 264,
+  "severity": "medium",
+  "title": "Every tab switch writes settings.json synchronously on the UI thread and fans out a full settings.Changed",
+  "scenario": "With RememberLastTab on (a common setting), every click on a different tab calls _settings.Update. SettingsService.Update saves synchronously (JsonStore.Save under lock) and then raises Changed on the calling thread, which here is the UI thread, in the middle of the tab-switch spring animation. Changed triggers ThemeService.OnSettingsChanged, App.ApplySettings (autostart registry read/write, hotkey check, AppBar), NotchWindow.OnSettingsChanged (Place() calls SetWindowPos HWND_TOPMOST, ApplyGeometry, UpdatePhoneChip), LiveActivityViewModel.UpdateMeeting (a calendar query) and PeekViewModel.UpdateLayoutFlags. On a slow or synced disk (OneDrive-redirected %APPDATA%, AV scanning) this causes visible frame drops on every tab change and constant writes to settings.json.",
+  "fix": "Do not persist LastTab on every switch. Keep it in a field and write it once, when the panel collapses (SetState away from Expanded) or in OnExit. Alternatively debounce it with a 2–3 s DispatcherTimer and run the save off the UI thread. Optionally have NotchWindow.OnSettingsChanged skip Place() unless Notch.MonitorIndex changed."
+ },
+ {
+  "file": "src/NotchHub.App/Shell/AppBarReservation.cs",
+  "line": 216,
+  "severity": "medium",
+  "title": "The reserved AppBar strip is lost after an Explorer restart, and a failed first registration at logon is never retried",
+  "scenario": "(1) When Explorer restarts (crash, update, or 'Restart explorer'), the shell forgets every AppBar. AppBarReservation never handles the TaskbarCreated message (TrayIcon does), so _registered stays true and maximized windows cover the notch strip again. ABN_FULLSCREENAPP is also no longer delivered, so _abFullscreen can stay stuck. (2) With autostart, NotchHub can start before Explorer's taskbar exists. Update() then fails ABM_NEW (logged as 'AppBar registration failed') and returns. App.ApplyAppBar has already cached _appBarState = state (App.xaml.cs line 263), so later calls with the same settings return early and the reservation never comes back for that session.",
+  "fix": "In AppBarReservation, register for TaskbarCreated (RegisterWindowMessage(\"TaskbarCreated\"), as TrayIcon does). In WndProc, when that message arrives and the reservation was enabled, set _registered = false and call Update(true, _heightDip, _monitorIndex). In App.ApplyAppBar, set _appBarState only when _appBar.IsRegistered matches the requested enabled state. Alternatively make Update return bool and clear _appBarState on failure, so the next settings change, IdleHeightChanged or TaskbarCreated retries."
+ },
+ {
+  "file": "src/NotchHub.UI/Theming/ThemeService.cs",
+  "line": 134,
+  "severity": "medium",
+  "title": "The 'Windows accent' color source never updates when the Windows accent color changes",
+  "scenario": "The user picks Appearance > source = Windows accent, or the installer pre-selects it as the appearance option. The user then changes the accent color in Windows Settings, or has 'automatically pick accent from background', so the accent follows each new wallpaper. ThemeService only refreshes on its own appearance-settings changes or on wallpaper changes. For WindowsAccent, OnWallpaperChanged only recomputes wallpaper candidates (line 140) and never calls RefreshAsync. No WM_DWMCOLORIZATIONCOLORCHANGED or UserPreferenceChanged hook exists anywhere, and WallpaperService.Changed fires only when the wallpaper signature changes. The panel keeps the old accent until the app restarts or the user touches an appearance setting.",
+  "fix": "In OnWallpaperChanged, also call RefreshAsync() when src == ColorSource.WindowsAccent, because an accent that follows the wallpaper changes with it. Additionally, subscribe to Microsoft.Win32.SystemEvents.UserPreferenceChanged (category General/Color), or forward WM_DWMCOLORIZATIONCOLORCHANGED (0x0320) from NotchWindow.WndProc, and call RefreshAsync() when the source is WindowsAccent and AccentColor() differs from SourceColor. Unsubscribe in Dispose."
+ },
+ {
+  "file": "src/NotchHub.UI/Modding/WidgetMod.cs",
+  "line": 91,
+  "severity": "medium",
+  "title": "Widget XAML can start arbitrary programs, which bypasses the 'Allow widgets to run commands' switch",
+  "scenario": "Settings > Mods presents 'Allow widgets to run commands' as the gate for process execution by no-code widget mods (RefreshAsync line 128 checks it only for data.command). But CreateView loads the mod's view.xaml with unrestricted XamlReader.Load. A widget view can declare xmlns:d=\"clr-namespace:System.Diagnostics;assembly=System.Diagnostics.Process\" and an <ObjectDataProvider ObjectType=\"{x:Type d:Process}\" MethodName=\"Start\"> with arguments. That starts any executable as soon as the user opens the tab, even with commands disabled. A user who turned the switch off to safely try a downloaded widget is not protected.",
+  "fix": "Before XamlReader.Load, pre-scan view.xaml with XmlReader. Reject the file, and show it as ModInfo.Error, if it declares any xmlns other than the WPF presentation/xaml namespaces (and the NotchHub.UI namespace if intended), or uses ObjectDataProvider, x:Code, x:FactoryMethod, x:Arguments or x:Static on non-whitelisted types. Alternatively, reword the setting and MODDING.md to state clearly that widget XAML is trusted code and that the switch only covers data.command."
+ },
+ {
+  "file": "src/NotchHub.Platform.Media/Media/Spotify/SpotifyClient.cs",
+  "line": 196,
+  "severity": "high",
+  "title": "Spotify loopback listener aborts the whole sign-in when one connection is idle or reset",
+  "scenario": "WaitForCallbackAsync accepts one connection at a time and calls ReadRequestLineAsync without any per-connection error handling. The 10 s readTimeout in that method throws OperationCanceledException. SignInAsync (line 153) turns that into SpotifyException(\"timeout\") because the caller's ct was not cancelled. A reset connection throws IOException, which ConnectSpotifyAsync reports as \"unknown\". Note that stream.ReadTimeout = 5000 has no effect on ReadAsync. Chromium-based browsers often open a speculative extra socket to the loopback redirect and send nothing on it. If that idle socket is accepted first, the real /callback?code=… request waits in the backlog, and after 10 s sign-in fails with \"timeout\". Settings then shows the misleading 'register the redirect URI' message, even though the user authorized the app. GoogleOAuth.LoopbackReceiver avoids this: it returns null and continues.",
+  "fix": "In WaitForCallbackAsync, wrap the per-connection read and response in try/catch. Catch OperationCanceledException when !ct.IsCancellationRequested, and IOException/SocketException, then `continue` so the loop keeps waiting for the next connection. Inside ReadRequestLineAsync, catch the readTimeout cancellation (when !ct.IsCancellationRequested) and return null, as GoogleOAuth.ReadRequestTargetAsync already does. Optionally accept connections concurrently, or limit the 10 s budget to each connection only."
+ },
+ {
+  "file": "src/NotchHub.Platform.Machine/SpeedTest/SpeedTestService.cs",
+  "line": 157,
+  "severity": "medium",
+  "title": "Latency phase has no deadline, so a stalled request hangs the speed test forever",
+  "scenario": "The HttpClient is created with Timeout = InfiniteTimeSpan (line 60) on the assumption that phase tokens bound each request. MeasureLatencyAsync, however, passes only the run token to Http.GetAsync. Suppose the request is sent and acknowledged, and then Wi-Fi drops, the lid is closed, or a captive portal or VPN blackholes the reply. The response never arrives, there is no TCP keep-alive, and GetAsync waits forever. Phase stays Latency and IsRunning stays true, so every later RunAsync returns immediately as a no-op until the user finds Cancel or restarts the app.",
+  "fix": "In MeasureLatencyAsync, give each request its own deadline: `using var req = CancellationTokenSource.CreateLinkedTokenSource(ct); req.CancelAfter(TimeSpan.FromSeconds(5));`, and pass req.Token. Also bound the whole phase, for example with a linked CTS of about 20 s. When the timeout fires and ct is not cancelled, map it to a Failed phase with a timeout error instead of letting it look like a user cancel."
+ },
+ {
+  "file": "src/NotchHub.Platform.Connectivity/Network/NetworkService.cs",
+  "line": 296,
+  "severity": "medium",
+  "title": "Connecting with a typed password overwrites, then deletes, the user's existing saved Wi-Fi profile",
+  "scenario": "ControlsViewModel opens the password field when connecting with a saved profile fails, for example after the 15 s ConnectTimeout or when the AP is briefly out of range. ConnectNewAsync then calls WlanSetProfile with overwrite=true and profile name = SSID, which is the same name Windows uses for its own saved profile, so the saved profile is replaced. If this attempt also fails (wrong guess, another timeout), line 296 calls WlanDeleteProfile(ssid). The network the user had saved in Windows, including its auto-connect setting and possibly a correct key, is permanently removed.",
+  "fix": "Before SetProfile, check whether a profile named `ssid` already exists using WlanGetProfile (add a GetProfileXml helper to WlanClient). Delete on failure only when the profile did not exist before. Otherwise restore the original XML with SetProfile(original) after a failed attempt. Another option is to use a distinct profile name for new attempts and remove the old profile only after the connection succeeds."
+ },
+ {
+  "file": "src/NotchHub.Platform.Shell/Clipboard/ClipboardService.cs",
+  "line": 570,
+  "severity": "medium",
+  "title": "PasteAsync sends Ctrl+V even when re-activating the previous window failed",
+  "scenario": "The return value of foreground.RestorePreviousForeground() is ignored, and SendPasteKeystroke runs anyway. Restore returns false in three cases: the last external window was closed while the notch was open; IsWindow(target) fails; or SetForegroundWindow is refused because of the foreground lock. Ctrl+V then goes to whatever window Windows activated after Collapse(). That is often the desktop or a File Explorer window, where pasting a file or image history item creates copies of the files in that folder, or some unrelated app that receives the clipboard text.",
+  "fix": "Use `if (!foreground.RestorePreviousForeground()) return true;`. Equivalently, skip the keystroke unless restore succeeded, and leave the content on the clipboard. Also have ForegroundService expose the restored HWND, and re-check `GetForegroundWindow() == target` just before SendInput."
+ },
+ {
+  "file": "src/NotchHub.Services/Weather/WeatherService.cs",
+  "line": 145,
+  "severity": "medium",
+  "title": "Weather (and calendar/todo timers) stay stale after sleep and never react to the network coming back",
+  "scenario": "On Windows, .NET timers and Task.Delay measure time with QueryUnbiasedInterruptTime, which excludes time spent asleep. The loop waits on _wake.WaitAsync(RefreshInterval = 30 min), and no code in the solution listens for resume or network changes (grep: no PowerModeChanged or NetworkAvailabilityChanged). Example: a laptop sleeps overnight with 20 minutes left on the wait. After wake it shows last night's temperature and forecast for about 20 more awake minutes. Right after resume, while Wi-Fi is still reconnecting, fetches fail and back off to 1/2/5/10/30 min, and nothing wakes the loop when connectivity returns. The same root cause affects CalendarService.RunLoopAsync (line 160, RefreshMinutes) and TodoService.ScheduleMidnight (line 110): completed to-dos are cleared hours after midnight if the PC slept.",
+  "fix": "Cap each wait at a few minutes, for example `Math.Min(wait, 5 min)`, and recompute DueIn from the wall clock (_current.FetchedAt) on every loop iteration. Subscribe to System.Net.NetworkInformation.NetworkChange.NetworkAvailabilityChanged and NetworkAddressChanged so they reset _failures and call _wake.Set(). Apply the same cap-and-recheck in CalendarService (track the last sync time) and TodoService (re-arm the midnight timer with a short maximum period and compare dates)."
+ },
+ {
+  "file": "src/NotchHub.Platform.Media/Media/Spotify/SpotifyClient.cs",
+  "line": 304,
+  "severity": "medium",
+  "title": "Disconnecting Spotify during an in-flight token refresh brings the session back",
+  "scenario": "GetAccessTokenAsync captures `refresh`, awaits PostTokenAsync, and then evaluates `rotated = fresh.RefreshToken != _refreshToken`. If DisconnectSpotifyAsync runs SignOut() during that await, _refreshToken is null and _clientId is still set (SignOut does not clear it). Spotify's PKCE refresh returns a new refresh_token, so `rotated` is true: _refreshToken is set again and Persist() writes spotify-session.bin back to disk. The UI shows Disconnected, but HasSession is true and the next app start loads the session as Connected. The account the user disconnected stays linked. The window is a token refresh at startup validation, or on a track change after the access token has expired.",
+  "fix": "Under _lock after the await, apply the result only when `_refreshToken == refresh`, meaning the session used for the refresh is still current. Otherwise discard the result and throw SpotifyException(\"not_connected\", sessionLost: true). A sign-out generation counter that SignOut increments and GetAccessTokenAsync compares works as well. Also clear _clientId or bump the generation in SignOut so that Persist() becomes a no-op."
+ },
+ {
+  "file": "src/NotchHub.Platform.Machine/Stats/StatsService.cs",
+  "line": 76,
+  "severity": "medium",
+  "title": "Stats keep sampling every 5 s forever even though nothing consumes them while the Stats tab is hidden",
+  "scenario": "With no live token, the timer keeps firing at IdleInterval = 5 s. The only consumer, StatsViewModel, unsubscribes from Updated in OnHidden. Each tick still runs the full sample: a PDH CPU collect, an NVML or PDH 'GPU Engine(*)' collect (the PDH wildcard is expensive on non-NVIDIA machines), a NtQuerySystemInformation process walk into a 512 KB+ buffer, GetIfTable2, and DriveInfo.GetDrives with IsReady/TotalFreeSpace on every fixed disk. This happens 24/7 with the panel collapsed. It breaks the documented idle budget (~0 % CPU, live updates only while visible), keeps the CPU from staying in deep idle states, and the contract permits 'not at all'.",
+  "fix": "In Release(), when the last token is released, stop the timer with `_timer?.Change(Timeout.Infinite, Timeout.Infinite)` instead of switching to IdleInterval. In StartAsync, create the timer disarmed unless _liveTokens > 0. RequestLiveUpdates already re-arms it with Change(TimeSpan.Zero, LiveInterval), which also provides the fresh baseline. If a background value is ever needed, use ≥30 s and skip the GPU, process and drive reads."
+ },
+ {
+  "file": "src/NotchHub.Platform.Shell/Clipboard/ClipboardService.cs",
+  "line": 288,
+  "severity": "medium",
+  "title": "Clipboard PNGs are fully decoded before the 40-Mpx cap is checked, causing huge memory spikes",
+  "scenario": "For the \"PNG\" clipboard format, StoreImage decodes the whole image with BitmapImage and CacheOption.OnLoad. MaxImagePixels is only checked afterwards, in ToBgra, which then runs FormatConvertedBitmap plus a second full-size byte[]. Copying a 15000×15000 full-page screenshot or a large design export decodes about 900 MB of pixels on the imaging thread. On an app with a 120 MB budget, that can raise OutOfMemoryException or force the system to page, only for the image to be rejected. The PNG byte array itself (line 202) has no size limit either.",
+  "fix": "Before decoding, read the dimensions cheaply: `var frame = BitmapDecoder.Create(stream, BitmapCreateOptions.IgnoreColorProfile | BitmapCreateOptions.DelayCreation, BitmapCacheOption.None).Frames[0];` and check frame.PixelWidth * frame.PixelHeight against MaxImagePixels, returning null when it is too large. Also skip PNG payloads above a byte limit (for example 64 MB) in CaptureAsync before calling pngStream.ToArray()."
+ },
+ {
+  "file": "src/NotchHub.Features.Today/TodayViewModel.cs",
+  "line": 56,
+  "severity": "high",
+  "title": "Today event sheet keeps its HoldOpen token after the tab is hidden, so the panel stops auto-collapsing",
+  "scenario": "The user opens 'Add event' on Today. OnIsEventSheetOpenChanged (line 309-313) takes AppServices.Shell.HoldOpen(). The user then switches to another tab from the tab bar, or collapses the notch with the hotkey or a click. NotchWindow calls TodayViewModel.OnHidden (NotchWindow.Tabs.cs:230 / NotchWindow.xaml.cs:357). OnHidden (56-72) resets TimerIsWavy and IsDayExpanded but never closes the sheet, so _sheetHold stays alive. NotchWindow._holds stays above 0 and KeepOpen() always returns true, so OnLeaveElapsed re-arms its timer forever. From then on the expanded panel never collapses when the mouse leaves, on any tab, until the user goes back to Today and cancels the sheet. ControlsViewModel.OnHidden (SheetOpen=false) and SettingsViewModel.OnHidden (CancelCapture) both release their holds, but Today does not.",
+  "fix": "In TodayViewModel.OnHidden add `IsEventSheetOpen = false;`, which runs OnIsEventSheetOpenChanged and disposes _sheetHold. If keeping the draft matters, at least do `_sheetHold?.Dispose(); _sheetHold = null;` in OnHidden and take the hold again in OnShown when IsEventSheetOpen is still true."
+ },
+ {
+  "file": "src/NotchHub.Features.Clipboard/ClipEntry.cs",
+  "line": 93,
+  "severity": "medium",
+  "title": "Decoded clipboard preview bitmaps are kept for the whole session (unbounded memory growth)",
+  "scenario": "PreviewImage decodes each image at up to 720 px wide (line 101), and its height grows in proportion: a 1920x1080 screenshot is about 1.2 MB and a tall full-page capture is 10 MB or more. The result is stored in the ClipEntry field _previewImage. ClipboardViewModel._cache (ClipboardViewModel.cs:96) keeps every ClipEntry alive while the tab is hidden and only drops them on force/language change or when the item is deleted. ImageLoader's static Cache (ImageLoader.cs:12-29) also keeps up to 160 completed decodes and only clears once it goes over 160. A user who arrows through 100 image clips in the history holds well over 100 MB of decoded bitmaps permanently. That is past the ~120 MB working-set budget, and the memory is not released when the panel collapses.",
+  "fix": "Keep the decoded preview only for the current item. Do not store _previewImage on ClipEntry, or clear it when Current changes. Give ImageLoader a separate small LRU for preview-size decodes (for example 6-8 entries) and keep the larger cache for the 64 px thumbs only. Clear the preview cache in ClipboardViewModel.OnHidden. Also evict cache entries by count when inserting, rather than clearing everything at 160."
+ },
+ {
+  "file": "src/NotchHub.Features.Today/TodayViewModel.cs",
+  "line": 379,
+  "severity": "medium",
+  "title": "New events get the wrong UTC offset on DST-transition days",
+  "scenario": "SaveEvent builds the start time with `TimeZoneInfo.Local.GetUtcOffset(day)`, where `day` is local midnight, not the chosen hour. On a DST change day in Poland (for example 25 Oct 2026, 3:00 CEST -> 2:00 CET), a user adds an event at 10:00. The midnight offset is +02:00, so the event is stored as 10:00+02:00 = 08:00Z, which shows as 09:00 CET. The same thing happens in spring, shifted the other way. The event is saved locally or sent to Google one hour off.",
+  "fix": "Compute the offset for the actual wall-clock time: `var local = new DateTime(day.Year, day.Month, day.Day, NewHour, NewMinute, 0, DateTimeKind.Unspecified); var start = new DateTimeOffset(local, TimeZoneInfo.Local.GetUtcOffset(local));` If the time does not exist (TimeZoneInfo.Local.IsInvalidTime(local)), move it forward by one hour."
+ },
+ {
+  "file": "src/NotchHub.Features.Phone/PhoneViewModel.cs",
+  "line": 143,
+  "severity": "medium",
+  "title": "Reply, Ring, Ping and Send clipboard always report success, and the typed reply is lost when sending fails",
+  "scenario": "SendReply (143-148) clears ReplyText before it sends. ReplyAsync (485-490), Ring (502-506), Ping (509-513) and SendClipboard (516-526) then always call ShowFeedback(\"...Sent\"). The KDE Connect service swallows send failures: SendActiveAsync (PhoneService.cs:1018) returns false when there is no active link or the 15 s write times out. When the phone briefly drops off Wi-Fi, or the link is half-open after sleep/resume, the user's reply is discarded and the UI still says 'Reply sent'. Ring and Ping show the same false confirmation.",
+  "fix": "Only send when Mode == PhoneMode.Connected (and the active device IsReachable). Otherwise show a localized 'phone offline' feedback and leave ReplyText as it is. Clear ReplyText only after the send succeeds. The service already returns Task<bool> (`if (task is Task<bool> t && !await t)`). Better still, ask the lead to change the IPhoneService contract so Reply/Ring/Ping/SendClipboard return Task<bool>, and show a phone.sendFailed string (add it to pl.xaml and en.xaml) on false."
+ },
+ {
+  "file": "src/NotchHub.Features.Clipboard/ClipEntry.cs",
+  "line": 158,
+  "severity": "medium",
+  "title": "First search keystroke normalizes the full text of every history item on the UI thread and keeps a copy of each",
+  "scenario": "Matches() builds _searchKey lazily with Normalize() on the full Item.Text. Items can be up to 1,000,000 characters (ClipboardService.MaxTextLength). Normalize does ToLowerInvariant + Normalize(FormD) + a StringBuilder copy. When the user types the first character in the clipboard search box, Rebuild runs this on the dispatcher for every item (up to MaxItems = 1000). With a history of copied logs or code, the panel freezes for hundreds of ms to seconds. Each ClipEntry then keeps a second normalized copy of its text (2+ MB per large item) for the rest of the session, through ClipboardViewModel._cache.",
+  "fix": "Build the search key from a bounded prefix (for example the first 20-50k characters plus SourceApp and file names) and cache it per ClipItem. Precompute keys off the UI thread with Task.Run when the tab is shown, or when the query first becomes non-empty, then apply the filter on the dispatcher. Clear _searchKey for entries when the tab is hidden."
+ },
+ {
+  "file": "src/NotchHub.Features.Settings/SettingsViewModel.More.cs",
+  "line": 525,
+  "severity": "medium",
+  "title": "'Start with Windows' switch shows settings.json, not the real autostart state, so outside changes get reverted",
+  "scenario": "LoadGeneral sets StartWithWindows from S.General.StartWithWindows, and App.ApplySettings (App.xaml.cs:221, run at startup at line 118) forces the Run key to match that flag. When autostart is changed outside the app, the switch shows the wrong value and the change is undone at the next launch. Two cases: the new installer's 'Start with Windows' option on an upgrade, where SetupOptions writes settings only when no settings.json exists but RegistryOps.SetAutostart still writes the Run key; and the user disabling NotchHub in Task Manager > Startup apps, which makes IsEnabled false. In the Task Manager case, settings say true, so every launch calls SetEnabled(true) and resets the StartupApproved flag the user chose in Windows.",
+  "fix": "In LoadGeneral read the live state: `StartWithWindows = AppServices.Autostart?.IsEnabled ?? S.General.StartWithWindows;`. When it differs from settings, update S.General silently (Save under _loading=false), so that the registry and Windows' Startup apps setting are the source of truth and settings.json is only a mirror. Report to the lead that App.ApplySettings should only push the flag to the registry when the user toggles it, not on every startup. The installer should also update General.StartWithWindows in an existing settings.json when it changes the Run key."
+ }
+]

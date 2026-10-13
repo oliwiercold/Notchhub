@@ -25,6 +25,7 @@ public sealed class ClipboardService(ISettingsService settings) : IClipboardServ
 {
     private const int MaxTextLength = 1_000_000;
     private const long MaxImagePixels = 40_000_000;
+    private const long MaxPngBytes = 64L * 1024 * 1024;
     private static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(1.5);
 
     private readonly ISettingsService _settings = settings;
@@ -199,6 +200,7 @@ public sealed class ClipboardService(ISettingsService settings) : IClipboardServ
             {
                 if (Win32.IsClipboardFormatAvailable(_fmtPng) && data.GetData("PNG") is MemoryStream pngStream)
                 {
+                    if (pngStream.Length > MaxPngBytes) return; // too large for the history; never copy it
                     png = pngStream.ToArray();
                 }
                 else if (data.GetDataPresent(DataFormats.Bitmap) && data.GetData(DataFormats.Bitmap) is BitmapSource source)
@@ -285,6 +287,11 @@ public sealed class ClipboardService(ISettingsService settings) : IClipboardServ
             if (image is null && png is not null)
             {
                 using var stream = new MemoryStream(png, writable: false);
+                // Read the dimensions from the header first: a huge image must be rejected before it is decoded.
+                var frame = BitmapDecoder.Create(stream, BitmapCreateOptions.IgnoreColorProfile | BitmapCreateOptions.DelayCreation,
+                    BitmapCacheOption.None).Frames[0];
+                if ((long)frame.PixelWidth * frame.PixelHeight is 0 or > MaxImagePixels) return null;
+                stream.Position = 0;
                 var decoded = new BitmapImage();
                 decoded.BeginInit();
                 decoded.CacheOption = BitmapCacheOption.OnLoad;
@@ -567,7 +574,9 @@ public sealed class ClipboardService(ISettingsService settings) : IClipboardServ
         await Task.Delay(120).ConfigureAwait(false);
         var foreground = AppServices.Foreground;
         if (foreground is null) return true;
-        foreground.RestorePreviousForeground();
+        // Without the previous app back in the foreground Ctrl+V would land wherever Windows put focus (desktop,
+        // Explorer: file copies). The content stays on the clipboard for a manual paste.
+        if (!foreground.RestorePreviousForeground()) return true;
         await Task.Delay(60).ConfigureAwait(false);
         foreground.SendPasteKeystroke();
         return true;

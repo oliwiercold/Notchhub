@@ -6,8 +6,10 @@ using NotchHub.UI.Animation;
 
 namespace NotchHub.Features.Today;
 
-public partial class TodayView : UserControl, ITabView
+public partial class TodayView : UserControl, ITabView, IDisposable
 {
+    private readonly ViewLifetime _life;
+
     public TodayView()
     {
         InitializeComponent();
@@ -20,6 +22,7 @@ public partial class TodayView : UserControl, ITabView
                 AnimateDay(ViewModel.IsDayExpanded);
         };
         PreviewKeyDown += OnPreviewKey;
+        _life = new ViewLifetime(this, ViewModel.OnShown, ViewModel.OnHidden, ViewModel.Release);
     }
 
     // ── expanded day agenda ──
@@ -67,8 +70,11 @@ public partial class TodayView : UserControl, ITabView
 
     public TodayViewModel ViewModel => (TodayViewModel)DataContext;
 
-    public void OnShown() => ViewModel.OnShown();
-    public void OnHidden() => ViewModel.OnHidden();
+    public void OnShown() => _life.Show();
+    public void OnHidden() => _life.Hide();
+
+    /// <summary>Called by the shell when it throws a long-hidden view away; a new view is created when the tab opens again.</summary>
+    public void Dispose() => _life.Dispose();
 
     // ── timer fields: wheel / arrows adjust ──
 
