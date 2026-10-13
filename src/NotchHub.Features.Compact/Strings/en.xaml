@@ -1,0 +1,31 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <sys:String x:Key="compact.noEvents">No upcoming events</sys:String>
+    <sys:String x:Key="compact.today">Today</sys:String>
+    <sys:String x:Key="compact.tomorrow">Tomorrow</sys:String>
+    <sys:String x:Key="compact.pairRequest">Pairing request</sys:String>
+    <sys:String x:Key="compact.pairKey">Verification code</sys:String>
+    <sys:String x:Key="compact.accept">Accept</sys:String>
+    <sys:String x:Key="compact.reject">Reject</sys:String>
+    <sys:String x:Key="compact.timeUp">Time's up!</sys:String>
+    <sys:String x:Key="compact.plusMinute">+1 min</sys:String>
+    <sys:String x:Key="compact.stop">Stop</sys:String>
+    <sys:String x:Key="compact.meeting.in">in {0}</sys:String>
+    <sys:String x:Key="compact.meeting.left">{0} left</sys:String>
+    <sys:String x:Key="compact.unit.sec">{0} s</sys:String>
+    <sys:String x:Key="compact.unit.min">{0} min</sys:String>
+    <sys:String x:Key="compact.unit.hour">{0} h</sys:String>
+    <sys:String x:Key="compact.unit.hourMin">{0} h {1} min</sys:String>
+    <sys:String x:Key="compact.copyCode">Copy code {0}</sys:String>
+    <sys:String x:Key="compact.copied">Copied</sys:String>
+    <sys:String x:Key="compact.charging">Charging</sys:String>
+    <sys:String x:Key="compact.unplugged">Unplugged</sys:String>
+    <sys:String x:Key="compact.phone">Phone</sys:String>
+    <sys:String x:Key="compact.incomingCall">Incoming call</sys:String>
+    <sys:String x:Key="compact.missedCall">Missed call</sys:String>
+    <sys:String x:Key="compact.callEnded">Call ended</sys:String>
+    <sys:String x:Key="compact.mute">Mute</sys:String>
+    <sys:String x:Key="compact.muted">Muted</sys:String>
+    <sys:String x:Key="compact.unknownCaller">Unknown number</sys:String>
+</ResourceDictionary>

@@ -1,0 +1,27 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NotchHub.App/NotchHub.App.csproj" />
+    <Project Path="src/NotchHub.Core/NotchHub.Core.csproj" />
+    <Project Path="src/NotchHub.Demo/NotchHub.Demo.csproj" />
+    <Project Path="src/NotchHub.Features.Clipboard/NotchHub.Features.Clipboard.csproj" />
+    <Project Path="src/NotchHub.Features.Compact/NotchHub.Features.Compact.csproj" />
+    <Project Path="src/NotchHub.Features.Controls/NotchHub.Features.Controls.csproj" />
+    <Project Path="src/NotchHub.Features.Phone/NotchHub.Features.Phone.csproj" />
+    <Project Path="src/NotchHub.Features.Power/NotchHub.Features.Power.csproj" />
+    <Project Path="src/NotchHub.Features.Settings/NotchHub.Features.Settings.csproj" />
+    <Project Path="src/NotchHub.Features.Stats/NotchHub.Features.Stats.csproj" />
+    <Project Path="src/NotchHub.Features.Today/NotchHub.Features.Today.csproj" />
+    <Project Path="src/NotchHub.Installer/NotchHub.Installer.csproj" />
+    <Project Path="src/NotchHub.KdeConnect/NotchHub.KdeConnect.csproj" />
+    <Project Path="src/NotchHub.Platform.Connectivity/NotchHub.Platform.Connectivity.csproj" />
+    <Project Path="src/NotchHub.Platform.Machine/NotchHub.Platform.Machine.csproj" />
+    <Project Path="src/NotchHub.Platform.Media/NotchHub.Platform.Media.csproj" />
+    <Project Path="src/NotchHub.Platform.Shell/NotchHub.Platform.Shell.csproj" />
+    <Project Path="src/NotchHub.Services/NotchHub.Services.csproj" />
+    <Project Path="src/NotchHub.UI/NotchHub.UI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NotchHub.KdeConnect.Tests/NotchHub.KdeConnect.Tests.csproj" />
+    <Project Path="tests/NotchHub.Services.Tests/NotchHub.Services.Tests.csproj" />
+  </Folder>
+</Solution>

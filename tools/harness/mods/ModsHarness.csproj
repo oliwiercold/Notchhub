@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Modding harness: loads mods/examples into a temp data dir through the real ModLoader, checks ModRegistry, renders every mod tab
+    and the Controls tab (mods row) to PNG.
+    Build:  dotnet build mods/examples/Pomodoro/Pomodoro.csproj (no-dependencies, no-restore)
+            dotnet build tools/harness/mods/ModsHarness.csproj (no-dependencies, no-restore)
+    Run:    tools/harness/mods/bin/Debug/net10.0-windows10.0.22621.0/ModsHarness.exe [outDir]
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\NotchHub.Core\NotchHub.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\NotchHub.UI\NotchHub.UI.csproj" />
+    <ProjectReference Include="..\..\..\src\NotchHub.Demo\NotchHub.Demo.csproj" />
+    <ProjectReference Include="..\..\..\src\NotchHub.Features.Controls\NotchHub.Features.Controls.csproj" />
+  </ItemGroup>
+</Project>

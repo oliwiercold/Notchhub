@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Design-system gallery: renders the NotchHub.UI controls to a PNG.  Usage: Gallery.exe [out.png] [#sourceHex] [Variant] -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>NotchHub.Gallery</RootNamespace>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NotchHub.UI\NotchHub.UI.csproj" />
+    <ProjectReference Include="..\..\src\NotchHub.Core\NotchHub.Core.csproj" />
+  </ItemGroup>
+</Project>

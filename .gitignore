@@ -1,0 +1,15 @@
+bin/
+obj/
+obj_*/
+bin_*/
+.vs/
+*.user
+artifacts/
+publish/
+screenshots/
+TestResults/
+tools/fonts/out/
+tools/fonts/*-VF.ttf
+
+# screenshots of another product used only as a local design reference
+docs/reference/

@@ -1,0 +1,4 @@
+<Project>
+  <Import Project="..\..\..\..\Directory.Build.props" />
+  <PropertyGroup><Feature>Today</Feature></PropertyGroup>
+</Project>

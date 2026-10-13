@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <RootNamespace>NotchHub.UI</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NotchHub.Core\NotchHub.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Fonts\*.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\MaterialSymbolsRounded.codepoints" LogicalName="NotchHub.UI.MaterialSymbolsRounded.codepoints" />
+    <None Include="Assets\Fonts\OFL-GoogleSansFlex.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <RootNamespace>NotchHub.Platform.Connectivity</RootNamespace>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NotchHub.Core\NotchHub.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- WMI brightness for internal panels (WmiMonitorBrightness / WmiMonitorBrightnessMethods). -->
+    <PackageReference Include="System.Management" Version="10.0.12" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Read-only verification harness (tools/harness/connectivity) exercises the pure parsers directly. -->
+    <InternalsVisibleTo Include="ConnectivityHarness" />
+  </ItemGroup>
+</Project>

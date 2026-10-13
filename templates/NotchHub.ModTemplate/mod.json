@@ -1,0 +1,11 @@
+{
+  // id: unique, lowercase, used for the data folder (%APPDATA%\NotchHub\mods-data\<id>) and Settings > Mods.
+  "id": "my-mod",
+  "name": "Mój mod",
+  "version": "0.1.0",
+  "author": "Ty",
+  "description": "Krótki opis widoczny w Ustawienia → Mody.",
+  "kind": "assembly",
+  // DLL relative to this folder; every public class implementing INotchMod is created and initialized.
+  "assembly": "MyMod.dll"
+}

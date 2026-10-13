@@ -1,0 +1,9 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Single entry point merged by App.xaml. Keep the order: tokens → typography → controls. -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/NotchHub.UI;component/Themes/Tokens.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/NotchHub.UI;component/Themes/Typography.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/NotchHub.UI;component/Themes/Controls.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+</ResourceDictionary>

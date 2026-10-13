@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    NotchHub setup ("instalator jako notch"). A small WPF exe that embeds the published single-file NotchHub.exe.
+    Payload: $(NotchHubPayload) (default publish\single\NotchHub.exe at the repo root, produced by tools/build-release.ps1).
+    A missing payload fails Release builds and publishes with a clear message; Debug builds only warn (see below).
+  -->
+  <PropertyGroup>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <RootNamespace>NotchHub.Installer</RootNamespace>
+    <AssemblyName>NotchHub-Setup</AssemblyName>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\NotchHub.App\Assets\app.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>en;pl</SatelliteResourceLanguages>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <Description>NotchHub setup</Description>
+    <!-- no WinRT in setup: drops the 26 MB Windows SDK projection (NotchHub.UI / Core use no Windows.* API) -->
+    <IncludeWindowsSDKRefFrameworkReferences>false</IncludeWindowsSDKRefFrameworkReferences>
+    <MvvmToolkitEnableWindowsSdkPackageVersionValidation>false</MvvmToolkitEnableWindowsSdkPackageVersionValidation>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NotchHubPayload Condition="'$(NotchHubPayload)' == ''">$(MSBuildThisFileDirectory)..\..\publish\single\NotchHub.exe</NotchHubPayload>
+    <!-- Release builds and every publish require the payload; a Debug build (e.g. a solution build on a clean clone, where
+         the git-ignored publish\ folder is empty) only warns and produces a setup that refuses to install. -->
+    <NotchHubPayloadOptional Condition="'$(NotchHubPayloadOptional)' == '' And '$(Configuration)' == 'Debug' And '$(_IsPublishing)' != 'true'">true</NotchHubPayloadOptional>
+    <NotchHubPayloadOptional Condition="'$(NotchHubPayloadOptional)' == ''">false</NotchHubPayloadOptional>
+    <NotchHubModsDir>$(MSBuildThisFileDirectory)..\..\mods\examples\</NotchHubModsDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NotchHub.Core\NotchHub.Core.csproj" />
+    <ProjectReference Include="..\NotchHub.UI\NotchHub.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- the app payload is embedded zipped (~35 MB -> ~10 MB) by the targets below -->
+    <EmbeddedResource Include="..\NotchHub.App\Assets\app.ico" LogicalName="NotchHub.Payload.app.ico" />
+    <!-- no-code example widget mods (source projects / build output excluded) -->
+    <EmbeddedResource Include="$(NotchHubModsDir)**\*"
+                      Exclude="$(NotchHubModsDir)**\bin\**;$(NotchHubModsDir)**\obj\**;$(NotchHubModsDir)**\*.cs;$(NotchHubModsDir)**\*.csproj;$(NotchHubModsDir)**\*.pdb"
+                      LogicalName="NotchHub.Mods/%(RecursiveDir)%(Filename)%(Extension)" WithCulture="false" />
+  </ItemGroup>
+
+  <Target Name="NotchHubCheckPayload" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(NotchHubPayload)') And '$(NotchHubPayloadOptional)' != 'true'"
+           Text="NotchHub installer: payload not found at '$(NotchHubPayload)'. Publish the app first (pwsh tools/build-release.ps1, or: dotnet publish src/NotchHub.App/NotchHub.App.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish/single), or pass -p:NotchHubPayload=&lt;path to NotchHub.exe&gt;. For a UI-only debug build pass -p:NotchHubPayloadOptional=true." />
+    <Warning Condition="!Exists('$(NotchHubPayload)') And '$(NotchHubPayloadOptional)' == 'true'"
+             Text="NotchHub installer: building WITHOUT the app payload ('$(NotchHubPayload)' is missing) — this setup cannot install." />
+    <Message Condition="Exists('$(NotchHubPayload)')" Importance="high" Text="NotchHub installer: embedding payload $(NotchHubPayload)" />
+  </Target>
+
+  <PropertyGroup>
+    <NotchHubPayloadDir>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)payload\$(Configuration)\</NotchHubPayloadDir>
+  </PropertyGroup>
+
+  <!-- payload -> obj\payload\<config>\NotchHub.zip (incremental: only when the exe changed) -->
+  <Target Name="NotchHubPackPayload" BeforeTargets="BeforeBuild" DependsOnTargets="NotchHubCheckPayload"
+          Condition="Exists('$(NotchHubPayload)')" Inputs="$(NotchHubPayload)" Outputs="$(NotchHubPayloadDir)NotchHub.zip">
+    <RemoveDir Directories="$(NotchHubPayloadDir)src" />
+    <Copy SourceFiles="$(NotchHubPayload)" DestinationFiles="$(NotchHubPayloadDir)src\NotchHub.exe" />
+    <ZipDirectory SourceDirectory="$(NotchHubPayloadDir)src" DestinationFile="$(NotchHubPayloadDir)NotchHub.zip" Overwrite="true" />
+  </Target>
+
+  <Target Name="NotchHubEmbedPayload" BeforeTargets="BeforeBuild" DependsOnTargets="NotchHubPackPayload" Condition="Exists('$(NotchHubPayload)')">
+    <ItemGroup>
+      <EmbeddedResource Include="$(NotchHubPayloadDir)NotchHub.zip" LogicalName="NotchHub.Payload.zip" WithCulture="false" />
+    </ItemGroup>
+  </Target>
+</Project>

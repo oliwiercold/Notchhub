@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Renders the views of ONE feature assembly to PNG with demo data (no app shell needed).
+    Build (after building the feature project):  dotnet build tools/preview/Preview.csproj -p:Feature=Controls
+    Run: tools/preview/bin/Controls/Debug/net10.0-windows10.0.22621.0/NotchHub.Preview.exe   (args: out dir, lang, width, wait - see Program.cs)
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>NotchHub.Preview</AssemblyName>
+    <RootNamespace>NotchHub.Preview</RootNamespace>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <StartupObject>NotchHub.Preview.Program</StartupObject>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <DefineConstants>$(DefineConstants);FEATURE_$(Feature.ToUpperInvariant())</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NotchHub.Core\NotchHub.Core.csproj" />
+    <ProjectReference Include="..\..\src\NotchHub.UI\NotchHub.UI.csproj" />
+    <ProjectReference Include="..\..\src\NotchHub.Demo\NotchHub.Demo.csproj" />
+    <ProjectReference Include="..\..\src\NotchHub.Features.$(Feature)\NotchHub.Features.$(Feature).csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="NotchHub.Preview.PreviewFeatureAttribute">
+      <_Parameter1>$(Feature)</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+</Project>

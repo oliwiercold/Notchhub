@@ -1,0 +1,31 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <sys:String x:Key="compact.noEvents">Brak nadchodzących wydarzeń</sys:String>
+    <sys:String x:Key="compact.today">Dziś</sys:String>
+    <sys:String x:Key="compact.tomorrow">Jutro</sys:String>
+    <sys:String x:Key="compact.pairRequest">Prośba o sparowanie</sys:String>
+    <sys:String x:Key="compact.pairKey">Kod weryfikacyjny</sys:String>
+    <sys:String x:Key="compact.accept">Akceptuj</sys:String>
+    <sys:String x:Key="compact.reject">Odrzuć</sys:String>
+    <sys:String x:Key="compact.timeUp">Czas minął!</sys:String>
+    <sys:String x:Key="compact.plusMinute">+1 min</sys:String>
+    <sys:String x:Key="compact.stop">Stop</sys:String>
+    <sys:String x:Key="compact.meeting.in">za {0}</sys:String>
+    <sys:String x:Key="compact.meeting.left">jeszcze {0}</sys:String>
+    <sys:String x:Key="compact.unit.sec">{0} s</sys:String>
+    <sys:String x:Key="compact.unit.min">{0} min</sys:String>
+    <sys:String x:Key="compact.unit.hour">{0} godz.</sys:String>
+    <sys:String x:Key="compact.unit.hourMin">{0} godz. {1} min</sys:String>
+    <sys:String x:Key="compact.copyCode">Kopiuj kod {0}</sys:String>
+    <sys:String x:Key="compact.copied">Skopiowano</sys:String>
+    <sys:String x:Key="compact.charging">Ładowanie</sys:String>
+    <sys:String x:Key="compact.unplugged">Odłączono</sys:String>
+    <sys:String x:Key="compact.phone">Telefon</sys:String>
+    <sys:String x:Key="compact.incomingCall">Połączenie przychodzące</sys:String>
+    <sys:String x:Key="compact.missedCall">Nieodebrane połączenie</sys:String>
+    <sys:String x:Key="compact.callEnded">Połączenie zakończone</sys:String>
+    <sys:String x:Key="compact.mute">Wycisz</sys:String>
+    <sys:String x:Key="compact.muted">Wyciszono</sys:String>
+    <sys:String x:Key="compact.unknownCaller">Nieznany numer</sys:String>
+</ResourceDictionary>

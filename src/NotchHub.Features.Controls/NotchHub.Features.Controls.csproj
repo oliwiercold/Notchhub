@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <RootNamespace>NotchHub.Features.Controls</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NotchHub.Core\NotchHub.Core.csproj" />
+    <ProjectReference Include="..\NotchHub.UI\NotchHub.UI.csproj" />
+  </ItemGroup>
+</Project>

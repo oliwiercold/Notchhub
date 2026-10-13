@@ -1,0 +1,1185 @@
+<UserControl x:Class="NotchHub.Features.Settings.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:NotchHub.UI.Controls;assembly=NotchHub.UI"
+             xmlns:conv="clr-namespace:NotchHub.UI.Converters;assembly=NotchHub.UI"
+             xmlns:local="clr-namespace:NotchHub.Features.Settings"
+             Foreground="{DynamicResource Brush.OnSurface}"
+             Height="520">
+    <UserControl.Resources>
+        <!-- Row: icon circle, title + description, control on the right -->
+        <Style TargetType="local:SettingRow">
+            <Setter Property="Margin" Value="0,4" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="local:SettingRow">
+                        <Grid MinHeight="44">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="IconBox" Width="36" Height="36" CornerRadius="18" Margin="0,0,12,0" VerticalAlignment="Center"
+                                    Background="{DynamicResource Brush.Surface3}">
+                                <ui:Icon Glyph="{TemplateBinding Icon}" Size="20" Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Style="{DynamicResource Text.Body}" Text="{TemplateBinding Title}" TextWrapping="Wrap" />
+                                <TextBlock x:Name="Desc" Style="{DynamicResource Text.BodyS}" Text="{TemplateBinding Description}" TextWrapping="Wrap" Margin="0,1,0,0" />
+                            </StackPanel>
+                            <ContentPresenter Grid.Column="2" VerticalAlignment="Center" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Icon" Value="">
+                                <Setter TargetName="IconBox" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                            <Trigger Property="Description" Value="{x:Null}">
+                                <Setter TargetName="Desc" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Single-choice chip group -->
+        <Style x:Key="Chips" TargetType="ItemsControl">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate DataType="local:Choice">
+                        <ToggleButton Style="{DynamicResource FilterChip}" Margin="0,4,8,4" Content="{Binding Label}"
+                                      IsChecked="{Binding IsSelected, Mode=OneWay}" Command="{Binding PickCommand}" />
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Press squish for custom tappables -->
+        <Style x:Key="Tappable" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform />
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="0.92" Duration="0:0:0.08" />
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="0.92" Duration="0:0:0.08" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleX" To="1" Duration="0:0:0.45">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <ElasticEase Oscillations="1" Springiness="5" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.ScaleY" To="1" Duration="0:0:0.45">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <ElasticEase Oscillations="1" Springiness="5" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Small color dot (presets) -->
+        <DataTemplate x:Key="DotTemplate" DataType="local:ColorDot">
+            <Button Style="{StaticResource Tappable}" Command="{Binding PickCommand}" Margin="0,0,8,0" ToolTip="{Binding Hex}">
+                <Grid Width="28" Height="28">
+                    <Ellipse x:Name="Ring" Stroke="{DynamicResource Brush.OnSurface}" StrokeThickness="2" Visibility="Hidden" />
+                    <Ellipse Margin="4" Fill="{Binding Brush}" />
+                </Grid>
+            </Button>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="Ring" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Removable text item -->
+        <DataTemplate x:Key="TextItemTemplate" DataType="local:TextItem">
+            <Border Background="{DynamicResource Brush.Surface3}" CornerRadius="10" Height="32" Margin="0,4,8,4" Padding="12,0,4,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{DynamicResource Text.Label}" Text="{Binding Text}" VerticalAlignment="Center" />
+                    <ui:IconButton Icon="close" Size="32" Variant="Standard" Margin="2,0,0,0" Command="{Binding RemoveCommand}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="196" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ───────── navigation ───────── -->
+        <Border Style="{DynamicResource CardTight}" Margin="0,0,12,0" Padding="8">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{DynamicResource Text.TitleL}" Text="{DynamicResource settings.Title}" Margin="12,6,0,10" />
+                <ListBox x:Name="Nav" ItemContainerStyle="{DynamicResource ListRow}" Background="Transparent" BorderThickness="0"
+                         Foreground="{DynamicResource Brush.OnSurface}" SelectedIndex="{Binding SectionIndex, Mode=TwoWay}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="OnNavChanged">
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="palette" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.Appearance}" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="vertical_align_top" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.Notch}" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="keyboard" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.Shortcuts}" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="content_paste" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.Clipboard}" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="partly_cloudy_day" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.Weather}" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="event" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.Calendar}" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="event_upcoming" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.Meeting}" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="smartphone" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.Phone}" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="extension" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.Mods}" /></StackPanel>
+                    <StackPanel Orientation="Horizontal"><ui:Icon Glyph="settings" Margin="0,0,12,0" /><TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Text="{DynamicResource settings.Nav.General}" /></StackPanel>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- ───────── content ───────── -->
+        <ScrollViewer x:Name="Scroller" Grid.Column="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <Grid Margin="0,0,8,8">
+
+                <!-- ═════ Wygląd ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=Appearance}">
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Appearance.ColorSource}" Margin="4,2,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding SourceSwatches}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:Swatch">
+                                        <Button Style="{StaticResource Tappable}" Command="{Binding PickCommand}" Margin="0,0,8,8">
+                                            <Border x:Name="Card" Width="80" Height="98" CornerRadius="20" Background="{DynamicResource Brush.Surface2}">
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <Grid Width="56" Height="56">
+                                                        <Grid Width="48" Height="48">
+                                                            <Grid.Clip>
+                                                                <EllipseGeometry Center="24,24" RadiusX="24" RadiusY="24" />
+                                                            </Grid.Clip>
+                                                            <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                                                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                                            <Rectangle Grid.ColumnSpan="2" Fill="{Binding A}" />
+                                                            <Rectangle Grid.Row="1" Fill="{Binding B}" />
+                                                            <Rectangle Grid.Row="1" Grid.Column="1" Fill="{Binding C}" />
+                                                        </Grid>
+                                                        <Ellipse x:Name="Ring" Stroke="{DynamicResource Brush.OnSurface}" StrokeThickness="2.5" Visibility="Hidden" />
+                                                        <Border x:Name="Check" Width="22" Height="22" CornerRadius="11" Visibility="Hidden"
+                                                                Background="{DynamicResource Brush.Surface1}">
+                                                            <ui:Icon Glyph="check" Size="16" Foreground="{DynamicResource Brush.OnSurface}" />
+                                                        </Border>
+                                                    </Grid>
+                                                    <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding Label}" HorizontalAlignment="Center"
+                                                               Margin="4,6,4,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Button>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                <Setter TargetName="Ring" Property="Visibility" Value="Visible" />
+                                                <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+                                                <Setter TargetName="Card" Property="Background" Value="{DynamicResource Brush.SecondaryContainer}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- custom color -->
+                            <Grid Margin="0,4,0,0" Visibility="{Binding IsCustomSource, Converter={conv:BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Style="{DynamicResource TextField}" ui:Field.Icon="colorize" ui:Field.Placeholder="#RRGGBB"
+                                         Text="{Binding CustomHex, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnHexKeyDown" />
+                                <ItemsControl Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Focusable="False"
+                                              ItemsSource="{Binding PresetColors}" ItemTemplate="{StaticResource DotTemplate}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </Grid>
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Foreground="{DynamicResource Brush.Error}" Margin="4,6,0,0"
+                                       Text="{DynamicResource settings.Appearance.HexInvalid}"
+                                       Visibility="{Binding CustomHexInvalid, Converter={conv:BoolToVisibility}}" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Appearance.Style}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding VariantSwatches}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:Swatch">
+                                        <ToggleButton Style="{DynamicResource FilterChip}" Margin="0,4,8,4" IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                                      Command="{Binding PickCommand}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Grid Width="18" Height="18" Margin="0,0,8,0">
+                                                    <Grid.Clip>
+                                                        <EllipseGeometry Center="9,9" RadiusX="9" RadiusY="9" />
+                                                    </Grid.Clip>
+                                                    <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                                    <Rectangle Grid.ColumnSpan="2" Fill="{Binding A}" />
+                                                    <Rectangle Grid.Row="1" Fill="{Binding B}" />
+                                                    <Rectangle Grid.Row="1" Grid.Column="1" Fill="{Binding C}" />
+                                                </Grid>
+                                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </ToggleButton>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Border Style="{DynamicResource Divider}" Margin="0,10" />
+                            <local:SettingRow Icon="dark_mode" Title="{DynamicResource settings.Appearance.Panel}" Description="{DynamicResource settings.Appearance.PanelDesc}">
+                                <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding PanelStyles}" />
+                            </local:SettingRow>
+                            <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Appearance.Contrast}" Margin="0,10,0,6" />
+                            <ui:M3Slider Icon="contrast" Minimum="-1" Maximum="1" SmallChange="0.1" TrackHeight="36" ShowValue="True"
+                                         Value="{Binding Contrast}" ValueText="{Binding ContrastText}" />
+                            <local:SettingRow Icon="animation" Margin="0,10,0,0" Title="{DynamicResource settings.Appearance.ReduceMotion}"
+                                              Description="{DynamicResource settings.Appearance.ReduceMotionDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding ReduceMotion}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="motion_play" Title="{DynamicResource settings.Appearance.AnimStyle}"
+                                              Description="{DynamicResource settings.Appearance.AnimStyleDesc}">
+                                <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding AnimationStyles}" />
+                            </local:SettingRow>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ═════ Notch ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=Notch}">
+                    <!-- Prominent: reserve screen space -->
+                    <Border CornerRadius="24" Padding="16" Margin="0,2,0,0" Background="{DynamicResource Brush.PrimaryContainer}"
+                            TextElement.Foreground="{DynamicResource Brush.OnPrimaryContainer}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="44" Height="44" CornerRadius="14" Margin="0,0,14,0" Background="{DynamicResource Brush.Primary}" VerticalAlignment="Top">
+                                    <ui:Icon Glyph="vertical_align_top" Size="24" Filled="True" Foreground="{DynamicResource Brush.OnPrimary}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Style="{DynamicResource Text.TitleL}" Text="{DynamicResource settings.Notch.Reserve}" />
+                                    <TextBlock Style="{DynamicResource Text.Body}" Opacity="0.8" TextWrapping="Wrap" Margin="0,2,12,0"
+                                               Text="{DynamicResource settings.Notch.ReserveDesc}" />
+                                </StackPanel>
+                                <ToggleButton Grid.Column="2" Style="{DynamicResource Switch}" VerticalAlignment="Center" IsChecked="{Binding ReserveScreenSpace}" />
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Margin="58,10,0,0" IsEnabled="{Binding ReserveScreenSpace}">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Opacity" Value="0.45" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Style="{DynamicResource Text.Label}" VerticalAlignment="Center" Margin="0,0,10,0" Text="{DynamicResource settings.Notch.ReserveHeight}" />
+                                <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding ReservedSpaceModes}" />
+                            </StackPanel>
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Foreground="{DynamicResource Brush.OnPrimaryContainer}" Opacity="0.75"
+                                       Margin="58,6,0,0" TextWrapping="Wrap" Text="{DynamicResource settings.Notch.ReserveModesDesc}" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Notch.Placement}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="desktop_windows" Title="{DynamicResource settings.Notch.Monitor}">
+                                <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding MonitorChoices}" MaxWidth="380" />
+                            </local:SettingRow>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Notch.Width}" Margin="0,0,0,6" />
+                                    <ui:M3Slider Icon="width" Minimum="120" Maximum="400" SmallChange="5" TrackHeight="36" ShowValue="True"
+                                                 Value="{Binding CollapsedWidth}" ValueText="{Binding CollapsedWidthText}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Notch.Height}" Margin="0,0,0,6" />
+                                    <ui:M3Slider Icon="height" Minimum="6" Maximum="36" SmallChange="1" TrackHeight="36" ShowValue="True"
+                                                 Value="{Binding CollapsedHeight}" ValueText="{Binding CollapsedHeightText}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Notch.Behavior}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Notch.Hover}" Margin="0,0,0,2" />
+                            <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding HoverChoices}" />
+                            <Grid Margin="0,8,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Notch.HoverDelay}" Margin="0,0,0,6" />
+                                    <ui:M3Slider Icon="mouse" Minimum="0" Maximum="1000" SmallChange="10" TrackHeight="36" ShowValue="True"
+                                                 Value="{Binding HoverDelay}" ValueText="{Binding HoverDelayText}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Notch.CollapseDelay}" Margin="0,0,0,6" />
+                                    <ui:M3Slider Icon="timer" Minimum="100" Maximum="2000" SmallChange="50" TrackHeight="36" ShowValue="True"
+                                                 Value="{Binding CollapseDelay}" ValueText="{Binding CollapseDelayText}" />
+                                </StackPanel>
+                            </Grid>
+                            <Border Style="{DynamicResource Divider}" Margin="0,10,0,6" />
+                            <local:SettingRow Icon="music_note" Title="{DynamicResource settings.Notch.LiveActivity}" Description="{DynamicResource settings.Notch.LiveActivityDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding ShowLiveActivity}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="view_agenda" Title="{DynamicResource settings.Notch.PeekGlance}" Description="{DynamicResource settings.Notch.PeekGlanceDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding PeekGlanceWithMedia}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="volume_up" Title="{DynamicResource settings.Notch.Hud}" Description="{DynamicResource settings.Notch.HudDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding ShowHud}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="swipe_down_alt" Title="{DynamicResource settings.Notch.Scroll}" Description="{DynamicResource settings.Notch.ScrollDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding ScrollToExpand}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="fullscreen_exit" Title="{DynamicResource settings.Notch.Fullscreen}" Description="{DynamicResource settings.Notch.FullscreenDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding HideInFullscreen}" />
+                            </local:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Notch.Tabs}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Notch.DefaultTab}" Margin="0,0,0,2" />
+                            <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding TabChoices}" />
+                            <local:SettingRow Icon="history" Margin="0,8,0,0" Title="{DynamicResource settings.Notch.RememberTab}" Description="{DynamicResource settings.Notch.RememberTabDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding RememberLastTab}" />
+                            </local:SettingRow>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ═════ Skróty ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=Shortcuts}">
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Shortcuts.Header}" Margin="4,2,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <ItemsControl ItemsSource="{Binding Hotkeys}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:HotkeyField">
+                                    <StackPanel Margin="0,4">
+                                        <local:SettingRow Icon="keyboard" Title="{Binding Title}">
+                                            <ui:M3Button x:Name="Btn" Variant="Tonal" Size="M" MinWidth="200" Icon="keyboard_command_key"
+                                                         Content="{Binding Display}" Command="{Binding StartCommand}" />
+                                        </local:SettingRow>
+                                        <TextBlock Style="{DynamicResource Text.BodyS}" Foreground="{DynamicResource Brush.Error}" Margin="48,0,0,4"
+                                                   Text="{Binding Error}" Visibility="{Binding Error, Converter={conv:NullToVisibility}}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding IsCapturing}" Value="True">
+                                            <Setter TargetName="Btn" Property="Variant" Value="Filled" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+                    <Border Style="{DynamicResource CardFlat}" Margin="0,12,0,0" CornerRadius="20" Padding="16,12">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:Icon Glyph="info" Size="18" Foreground="{DynamicResource Brush.OnSurfaceVariant}" Margin="0,0,10,0" VerticalAlignment="Top" />
+                            <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" MaxWidth="520" Text="{DynamicResource settings.Shortcuts.Hint}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ═════ Schowek ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=Clipboard}">
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Clipboard.Header}" Margin="4,2,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="content_paste" Title="{DynamicResource settings.Clipboard.Enabled}" Description="{DynamicResource settings.Clipboard.EnabledDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding ClipEnabled}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="image" Title="{DynamicResource settings.Clipboard.Images}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding ClipSaveImages}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="shield" Title="{DynamicResource settings.Clipboard.Sensitive}" Description="{DynamicResource settings.Clipboard.SensitiveDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding ClipIgnoreSensitive}" />
+                            </local:SettingRow>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Clipboard.MaxItems}" Margin="0,0,0,6" />
+                                    <ui:M3Slider Icon="format_list_numbered" Minimum="50" Maximum="1000" SmallChange="50" TrackHeight="36" ShowValue="True"
+                                                 Value="{Binding ClipMaxItems}" ValueText="{Binding ClipMaxItemsText}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Clipboard.Retention}" Margin="0,0,0,6" />
+                                    <ui:M3Slider Icon="history" Minimum="1" Maximum="90" SmallChange="1" TrackHeight="36" ShowValue="True"
+                                                 Value="{Binding ClipRetentionDays}" ValueText="{Binding ClipRetentionText}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Clipboard.IgnoredApps}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.Clipboard.IgnoredEmpty}"
+                                       Visibility="{Binding IgnoredApps.Count, Converter={conv:ZeroToCollapsed}, ConverterParameter=Invert}" Margin="0,0,0,8" />
+                            <ItemsControl ItemsSource="{Binding IgnoredApps}" ItemTemplate="{StaticResource TextItemTemplate}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <DockPanel Margin="0,8,0,0">
+                                <ui:M3Button DockPanel.Dock="Right" Margin="8,0,0,0" Variant="Tonal" Icon="add" Content="{DynamicResource settings.Add}"
+                                             Command="{Binding AddIgnoredAppCommand}" />
+                                <TextBox Style="{DynamicResource TextField}" ui:Field.Icon="apps" ui:Field.Placeholder="{DynamicResource settings.Clipboard.AppPlaceholder}"
+                                         Text="{Binding NewIgnoredApp, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnIgnoredAppKeyDown" />
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{DynamicResource Card}" Margin="0,12,0,0">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:M3Button Variant="Text" Content="{DynamicResource settings.Cancel}" Margin="0,0,6,0" Command="{Binding CancelClearCommand}"
+                                             Visibility="{Binding ClearConfirm, Converter={conv:BoolToVisibility}}" />
+                                <ui:M3Button x:Name="ClearBtn" Variant="Outlined" Icon="delete" Content="{DynamicResource settings.Clipboard.Clear}" Command="{Binding ClearHistoryCommand}" />
+                            </StackPanel>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Style="{DynamicResource Text.Body}" Text="{DynamicResource settings.Clipboard.ClearTitle}" />
+                                <TextBlock TextWrapping="Wrap">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontSize" Value="12" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Brush.OnSurfaceVariant}" />
+                                            <Setter Property="Text" Value="{DynamicResource settings.Clipboard.ClearDesc}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ClearDone}" Value="True">
+                                                    <Setter Property="Text" Value="{DynamicResource settings.Clipboard.Cleared}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding ClearConfirm}" Value="True">
+                                                    <Setter Property="Text" Value="{DynamicResource settings.Clipboard.ClearConfirm}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource Brush.Error}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ═════ Pogoda ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=Weather}">
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Weather.Header}" Margin="4,2,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="partly_cloudy_day" Title="{DynamicResource settings.Weather.Enabled}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding WeatherEnabled}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="thermostat" Title="{DynamicResource settings.Weather.Unit}">
+                                <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding UnitChoices}" />
+                            </local:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Weather.Location}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="location_on" Title="{Binding LocationText}" Description="{DynamicResource settings.Weather.Current}">
+                                <ui:M3Button Variant="Tonal" Size="S" Icon="my_location" Content="{DynamicResource settings.Weather.UseIp}" Command="{Binding UseIpLocationCommand}" />
+                            </local:SettingRow>
+                            <DockPanel Margin="0,10,0,0">
+                                <ui:M3Button DockPanel.Dock="Right" Margin="8,0,0,0" Variant="Filled" Icon="search" Content="{DynamicResource settings.Weather.Search}"
+                                             Command="{Binding SearchCityCommand}" />
+                                <ui:LoadingIndicator DockPanel.Dock="Right" Size="32" Margin="8,0,0,0" IsActive="{Binding IsSearching}"
+                                                     Visibility="{Binding IsSearching, Converter={conv:BoolToVisibility}}" />
+                                <TextBox Style="{DynamicResource TextField}" ui:Field.Icon="search" ui:Field.Placeholder="{DynamicResource settings.Weather.CityPlaceholder}"
+                                         Text="{Binding CitySearch, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnCityKeyDown" />
+                            </DockPanel>
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Margin="4,8,0,0" Text="{DynamicResource settings.Weather.NoResults}"
+                                       Visibility="{Binding SearchEmpty, Converter={conv:BoolToVisibility}}" />
+                            <ListBox ItemsSource="{Binding LocationResults}" ItemContainerStyle="{DynamicResource ListRow}" Background="Transparent" BorderThickness="0"
+                                     Margin="0,6,0,0" Foreground="{DynamicResource Brush.OnSurface}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     Visibility="{Binding LocationResults.Count, Converter={conv:ZeroToCollapsed}}" SelectionChanged="OnLocationPicked">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="local:LocationResult">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:Icon Glyph="location_on" Size="20" Margin="0,0,12,0" Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+                                            <StackPanel>
+                                                <TextBlock Style="{DynamicResource Text.Body}" Text="{Binding Name}" />
+                                                <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding Detail}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ═════ Kalendarz ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=Calendar}">
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Calendar.Google.Header}" Margin="4,2,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="account_circle" Title="{DynamicResource settings.Calendar.Google.Title}" Description="{Binding GoogleStatusText}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:M3Button Variant="Filled" Icon="login" Content="{DynamicResource settings.Calendar.Google.Connect}"
+                                                 Command="{Binding ConnectGoogleCommand}" IsEnabled="{Binding CanConnectGoogle}"
+                                                 Visibility="{Binding IsGoogleConnected, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}" />
+                                    <ui:M3Button Variant="Outlined" Icon="logout" Content="{DynamicResource settings.Calendar.Google.Disconnect}"
+                                                 Command="{Binding DisconnectGoogleCommand}"
+                                                 Visibility="{Binding IsGoogleConnected, Converter={conv:BoolToVisibility}}" />
+                                </StackPanel>
+                            </local:SettingRow>
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.Calendar.Google.BrowserHint}" TextWrapping="Wrap" Margin="48,0,0,4"
+                                       Visibility="{Binding IsGoogleBusy, Converter={conv:BoolToVisibility}}" />
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Foreground="{DynamicResource Brush.Error}" Text="{Binding GoogleErrorText}" TextWrapping="Wrap" Margin="48,0,0,4"
+                                       Visibility="{Binding GoogleErrorText, Converter={conv:NullToVisibility}}" />
+                            <Grid Margin="0,8,0,0" IsEnabled="{Binding CanEditGoogleClient}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Style="{DynamicResource TextField}" ui:Field.Icon="key" ui:Field.Placeholder="{DynamicResource settings.Calendar.Google.ClientId}"
+                                         Text="{Binding GoogleClientId, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBox Grid.Column="2" Style="{DynamicResource TextField}" ui:Field.Icon="lock" ui:Field.Placeholder="{DynamicResource settings.Calendar.Google.ClientSecret}"
+                                         Text="{Binding GoogleClientSecret, UpdateSourceTrigger=PropertyChanged}" />
+                            </Grid>
+
+                            <StackPanel Visibility="{Binding IsGoogleConnected, Converter={conv:BoolToVisibility}}">
+                                <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.Calendars}" Margin="0,12,0,6" />
+                                <ItemsControl ItemsSource="{Binding GoogleCalendars}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="local:GoogleCalendarItem">
+                                            <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Padding="12,8" Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Ellipse Width="14" Height="14" Fill="{Binding Brush}" Margin="2,0,12,0" VerticalAlignment="Center" />
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Style="{DynamicResource Text.Body}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding Detail}" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                    <ToggleButton Grid.Column="2" Style="{DynamicResource Switch}" Margin="12,0,4,0" IsChecked="{Binding Enabled}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.DefaultTarget}" Margin="0,12,0,2" />
+                            <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding EventTargetChoices}" />
+
+                            <Button Style="{StaticResource Tappable}" Command="{Binding ToggleGoogleHelpCommand}" Margin="0,10,0,0"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                <DockPanel Background="Transparent" Margin="0,6">
+                                    <ui:Icon DockPanel.Dock="Right" Glyph="expand_more" Size="20" Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+                                    <ui:Icon Glyph="help" Size="20" Margin="0,0,10,0" Foreground="{DynamicResource Brush.Primary}" />
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.HelpTitle}" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </Button>
+                            <StackPanel Visibility="{Binding GoogleHelpOpen, Converter={conv:BoolToVisibility}}" Margin="30,4,0,0">
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step1}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step2}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step3}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step4}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step5}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Calendar.Google.Step6}" />
+                                <ui:M3Button Variant="Tonal" Icon="open_in_new" HorizontalAlignment="Left" Margin="0,8,0,0"
+                                             Content="{DynamicResource settings.Calendar.Google.OpenConsole}" Command="{Binding OpenCloudConsoleCommand}" />
+                            </StackPanel>
+                            <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Padding="12,10" Margin="0,10,0,0">
+                                <DockPanel>
+                                    <ui:Icon Glyph="lightbulb" Size="20" Margin="0,0,10,0" VerticalAlignment="Top" Foreground="{DynamicResource Brush.Primary}" />
+                                    <StackPanel>
+                                        <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Google.AltTitle}" TextWrapping="Wrap" />
+                                        <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.Calendar.Google.AltText}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Calendar.Subscriptions}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.Calendar.Empty}" Margin="0,0,0,8"
+                                       Visibility="{Binding Subscriptions.Count, Converter={conv:ZeroToCollapsed}, ConverterParameter=Invert}" />
+                            <ItemsControl ItemsSource="{Binding Subscriptions}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:SubscriptionItem">
+                                        <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Padding="12,8" Margin="0,0,0,6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Width="6" CornerRadius="3" Background="{Binding Brush}" Margin="0,2,12,2" />
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Style="{DynamicResource Text.Body}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding Url}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock x:Name="St" Style="{DynamicResource Text.LabelS}" Text="{Binding Status}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                                <ToggleButton Grid.Column="2" Style="{DynamicResource Switch}" Margin="12,0,4,0" IsChecked="{Binding Enabled}" />
+                                                <ui:IconButton Grid.Column="3" Icon="delete" Size="40" Variant="Standard" Command="{Binding RemoveCommand}" />
+                                            </Grid>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding HasError}" Value="True">
+                                                <Setter TargetName="St" Property="Foreground" Value="{DynamicResource Brush.Error}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.AddTitle}" Margin="0,8,0,6" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Style="{DynamicResource TextField}" ui:Field.Icon="label" ui:Field.Placeholder="{DynamicResource settings.Calendar.Name}"
+                                         Text="{Binding NewCalName, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBox Grid.Column="2" Style="{DynamicResource TextField}" ui:Field.Icon="link" ui:Field.Placeholder="{DynamicResource settings.Calendar.Url}"
+                                         Text="{Binding NewCalUrl, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnCalUrlKeyDown" />
+                            </Grid>
+                            <DockPanel Margin="0,8,0,0">
+                                <ui:M3Button DockPanel.Dock="Right" Variant="Filled" Icon="add" Content="{DynamicResource settings.Add}" Command="{Binding AddSubscriptionCommand}" />
+                                <ItemsControl ItemsSource="{Binding CalendarColors}" ItemTemplate="{StaticResource DotTemplate}" VerticalAlignment="Center" Focusable="False">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </DockPanel>
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Foreground="{DynamicResource Brush.Error}" Margin="4,6,0,0"
+                                       Text="{DynamicResource settings.Calendar.UrlInvalid}" Visibility="{Binding NewCalInvalid, Converter={conv:BoolToVisibility}}" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Calendar.Options}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="calendar_month" Title="{DynamicResource settings.Calendar.Monday}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding WeekStartsMonday}" />
+                            </local:SettingRow>
+                            <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Calendar.Refresh}" Margin="0,8,0,6" />
+                            <ui:M3Slider Icon="sync" Minimum="5" Maximum="120" SmallChange="5" TrackHeight="36" ShowValue="True"
+                                         Value="{Binding CalRefreshMinutes}" ValueText="{Binding CalRefreshText}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ═════ Pasek spotkań ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=MeetingBar}">
+                    <Border CornerRadius="24" Padding="16" Margin="0,2,0,0" Background="{DynamicResource Brush.PrimaryContainer}"
+                            TextElement.Foreground="{DynamicResource Brush.OnPrimaryContainer}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="44" Height="44" CornerRadius="14" Margin="0,0,14,0" Background="{DynamicResource Brush.Primary}" VerticalAlignment="Top">
+                                <ui:Icon Glyph="event_upcoming" Size="24" Filled="True" Foreground="{DynamicResource Brush.OnPrimary}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Style="{DynamicResource Text.TitleL}" Text="{DynamicResource settings.Meeting.Title}" />
+                                <TextBlock Style="{DynamicResource Text.Body}" Opacity="0.8" TextWrapping="Wrap" Margin="0,2,12,0"
+                                           Text="{DynamicResource settings.Meeting.Desc}" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Style="{DynamicResource Switch}" VerticalAlignment="Center" IsChecked="{Binding MeetingEnabled}" />
+                        </Grid>
+                    </Border>
+
+                    <StackPanel IsEnabled="{Binding MeetingEnabled}">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Opacity" Value="0.45" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Meeting.When}" Margin="4,16,0,8" />
+                        <Border Style="{DynamicResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Meeting.Lead}" Margin="0,0,0,6" />
+                                <ui:M3Slider Icon="schedule" Minimum="5" Maximum="180" SmallChange="5" TrackHeight="36" ShowValue="True"
+                                             Value="{Binding MeetingLead}" ValueText="{Binding MeetingLeadText}" />
+                                <Border Style="{DynamicResource Divider}" Margin="0,10,0,6" />
+                                <local:SettingRow Icon="timelapse" Title="{DynamicResource settings.Meeting.Ongoing}" Description="{DynamicResource settings.Meeting.OngoingDesc}">
+                                    <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding MeetingShowOngoing}" />
+                                </local:SettingRow>
+                                <local:SettingRow Icon="music_note" Title="{DynamicResource settings.Meeting.WithMedia}" Description="{DynamicResource settings.Meeting.WithMediaDesc}">
+                                    <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding MeetingWithMedia}" />
+                                </local:SettingRow>
+                                <local:SettingRow Icon="today" Title="{DynamicResource settings.Meeting.SkipAllDay}" Description="{DynamicResource settings.Meeting.SkipAllDayDesc}">
+                                    <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding MeetingSkipAllDay}" />
+                                </local:SettingRow>
+                                <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Meeting.MaxTitle}" Margin="0,10,0,6" />
+                                <ui:M3Slider Icon="short_text" Minimum="12" Maximum="60" SmallChange="1" TrackHeight="36" ShowValue="True"
+                                             Value="{Binding MeetingMaxTitle}" ValueText="{Binding MeetingMaxTitleText}" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Meeting.Calendars}" Margin="4,16,0,8" />
+                        <Border Style="{DynamicResource Card}">
+                            <StackPanel>
+                                <ItemsControl ItemsSource="{Binding MeetingCalendars}" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="local:MeetingCalendarItem">
+                                            <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Padding="12,8" Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Ellipse Width="14" Height="14" Fill="{Binding Brush}" Margin="2,0,12,0" VerticalAlignment="Center" />
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Style="{DynamicResource Text.Body}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding Kind}" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                    <CheckBox Grid.Column="2" Style="{DynamicResource Checkbox}" Margin="12,0,4,0" VerticalAlignment="Center" IsChecked="{Binding Included}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Style="{DynamicResource Text.LabelS}" Margin="4,4,0,0" TextWrapping="Wrap" Text="{DynamicResource settings.Meeting.CalendarsHint}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ═════ Telefon ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=Phone}">
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Phone.Header}" Margin="4,2,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="smartphone" Title="{DynamicResource settings.Phone.Enabled}" Description="{Binding PhoneStatus}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding PhoneEnabled}" />
+                            </local:SettingRow>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Phone.DeviceName}" Margin="0,0,0,6" />
+                                    <TextBox Style="{DynamicResource TextField}" ui:Field.Icon="computer" Text="{Binding PhoneDeviceName, UpdateSourceTrigger=PropertyChanged}"
+                                             KeyDown="OnDeviceNameKeyDown" LostKeyboardFocus="OnDeviceNameLostFocus" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Phone.LocalId}" Margin="0,0,0,6" />
+                                    <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Height="44" Padding="14,0">
+                                        <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding LocalDeviceId}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Phone.Paired}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding PairedDevices}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:DeviceItem">
+                                        <local:SettingRow Icon="{Binding Icon}" Title="{Binding Name}" Description="{Binding Status}">
+                                            <ui:M3Button Variant="Outlined" Size="S" Icon="link_off" Content="{DynamicResource settings.Phone.Unpair}"
+                                                         Command="{Binding UnpairCommand}" IsEnabled="{Binding IsBusy, Converter={conv:InverseBool}}" />
+                                        </local:SettingRow>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding PairedDevices.Count, Converter={conv:ZeroToCollapsed}, ConverterParameter=Invert}">
+                                <ui:Icon Glyph="info" Size="18" Foreground="{DynamicResource Brush.OnSurfaceVariant}" Margin="0,0,10,0" VerticalAlignment="Top" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" MaxWidth="500" Text="{DynamicResource settings.Phone.PairHint}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Phone.Notifications}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="notifications" Title="{DynamicResource settings.Phone.Peeks}" Description="{DynamicResource settings.Phone.PeeksDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding NotificationPeeks}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="content_paste" Title="{DynamicResource settings.Phone.Clipboard}" Description="{DynamicResource settings.Phone.ClipboardDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding ReceiveClipboard}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="battery_5_bar" Title="{DynamicResource settings.Phone.Header2}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding PhoneInHeader}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="battery_charging_full" Title="{DynamicResource settings.Phone.ChargingHud}" Description="{DynamicResource settings.Phone.ChargingHudDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding PhoneChargingHud}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="call" Title="{DynamicResource settings.Phone.CallStatus}" Description="{DynamicResource settings.Phone.CallStatusDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding PhoneCallStatus}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="password" Title="{DynamicResource settings.Phone.OtpCopy}" Description="{DynamicResource settings.Phone.OtpCopyDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding PhoneOtpCopy}" />
+                            </local:SettingRow>
+                            <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Phone.Muted}" Margin="0,10,0,4" />
+                            <ItemsControl ItemsSource="{Binding MutedApps}" ItemTemplate="{StaticResource TextItemTemplate}" Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <DockPanel Margin="0,6,0,0">
+                                <ui:M3Button DockPanel.Dock="Right" Margin="8,0,0,0" Variant="Tonal" Icon="add" Content="{DynamicResource settings.Add}"
+                                             Command="{Binding AddMutedAppCommand}" />
+                                <TextBox Style="{DynamicResource TextField}" ui:Field.Icon="notifications_off" ui:Field.Placeholder="{DynamicResource settings.Phone.MutedPlaceholder}"
+                                         Text="{Binding NewMutedApp, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnMutedAppKeyDown" />
+                            </DockPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ═════ Mody ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=Mods}">
+                    <!-- header card: folder + how-to -->
+                    <Border CornerRadius="24" Padding="16" Margin="0,2,0,0" Background="{DynamicResource Brush.PrimaryContainer}"
+                            TextElement.Foreground="{DynamicResource Brush.OnPrimaryContainer}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="44" Height="44" CornerRadius="14" Margin="0,0,14,0" Background="{DynamicResource Brush.Primary}" VerticalAlignment="Top">
+                                <ui:Icon Glyph="extension" Size="24" Filled="True" Foreground="{DynamicResource Brush.OnPrimary}" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Style="{DynamicResource Text.TitleL}" Text="{DynamicResource settings.Mods.Title}" />
+                                <TextBlock Style="{DynamicResource Text.Body}" Opacity="0.8" TextWrapping="Wrap" Margin="0,2,0,0"
+                                           Text="{DynamicResource settings.Mods.Desc}" />
+                                <TextBlock Style="{DynamicResource Text.LabelS}" Foreground="{DynamicResource Brush.OnPrimaryContainer}" Opacity="0.7"
+                                           Margin="0,6,0,0" Text="{Binding ModsFolder}" TextTrimming="CharacterEllipsis" />
+                                <WrapPanel Margin="0,10,0,0">
+                                    <ui:M3Button Variant="Filled" Size="S" Icon="folder_open" Margin="0,0,8,0"
+                                                 Content="{DynamicResource settings.Mods.OpenFolder}" Command="{Binding OpenModsFolderCommand}" />
+                                    <ui:M3Button Variant="Tonal" Size="S" Icon="menu_book"
+                                                 Content="{DynamicResource settings.Mods.HowTo}" Command="{Binding OpenModGuideCommand}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- inline quick guide (when MODDING.md is not shipped next to the exe) -->
+                    <Border Style="{DynamicResource CardFlat}" Margin="0,12,0,0" CornerRadius="20" Padding="16,12"
+                            Visibility="{Binding ShowModGuide, Converter={conv:BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Style="{DynamicResource Text.Title}" Text="{DynamicResource settings.Mods.GuideTitle}" Margin="0,0,0,6" />
+                            <TextBlock Style="{DynamicResource Text.Body}" TextWrapping="Wrap" Text="{DynamicResource settings.Mods.Guide1}" />
+                            <TextBlock Style="{DynamicResource Text.Body}" TextWrapping="Wrap" Margin="0,4,0,0" Text="{DynamicResource settings.Mods.Guide2}" />
+                            <TextBlock Style="{DynamicResource Text.Body}" TextWrapping="Wrap" Margin="0,4,0,0" Text="{DynamicResource settings.Mods.Guide3}" />
+                            <TextBlock Style="{DynamicResource Text.Body}" TextWrapping="Wrap" Margin="0,4,0,0" Text="{DynamicResource settings.Mods.Guide4}" />
+                            <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,8,0,0" Text="{DynamicResource settings.Mods.GuideMore}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- restart hint -->
+                    <Border Margin="0,12,0,0" CornerRadius="16" Padding="14,10" Background="{DynamicResource Brush.TertiaryContainer}"
+                            TextElement.Foreground="{DynamicResource Brush.OnTertiaryContainer}"
+                            Visibility="{Binding ModsRestartNeeded, Converter={conv:BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:Icon Glyph="restart_alt" Size="20" Foreground="{DynamicResource Brush.OnTertiaryContainer}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Style="{DynamicResource Text.Label}" Foreground="{DynamicResource Brush.OnTertiaryContainer}" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" Text="{DynamicResource settings.Mods.Restart}" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Mods.Installed}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding Mods}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="local:ModItem">
+                                        <Grid Margin="0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border x:Name="IconBox" Width="40" Height="40" CornerRadius="14" Margin="0,0,12,0" VerticalAlignment="Top"
+                                                    Background="{DynamicResource Brush.SecondaryContainer}">
+                                                <ui:Icon Glyph="{Binding Icon}" Size="20" Foreground="{DynamicResource Brush.OnSecondaryContainer}" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Style="{DynamicResource Text.Title}" Text="{Binding Name}" VerticalAlignment="Center" />
+                                                    <Border Margin="8,0,0,0" CornerRadius="8" Padding="7,1" VerticalAlignment="Center"
+                                                            Background="{DynamicResource Brush.Surface3}">
+                                                        <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding KindLabel}" />
+                                                    </Border>
+                                                </StackPanel>
+                                                <TextBlock Style="{DynamicResource Text.LabelS}" Margin="0,2,0,0" Text="{Binding Meta}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Style="{DynamicResource Text.BodyS}" Margin="0,3,0,0" Text="{Binding Description}" TextWrapping="Wrap"
+                                                           Visibility="{Binding Description, Converter={conv:NullToVisibility}}" />
+                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0" Visibility="{Binding HasError, Converter={conv:BoolToVisibility}}">
+                                                    <ui:Icon Glyph="error" Size="14" Foreground="{DynamicResource Brush.Error}" Margin="0,0,6,0" VerticalAlignment="Top" />
+                                                    <TextBlock Style="{DynamicResource Text.BodyS}" Foreground="{DynamicResource Brush.Error}" TextWrapping="Wrap"
+                                                               MaxWidth="440" Text="{Binding Error}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                            <ToggleButton Grid.Column="2" Style="{DynamicResource Switch}" VerticalAlignment="Center" IsChecked="{Binding IsEnabled}" />
+                                        </Grid>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding HasError}" Value="True">
+                                                <Setter TargetName="IconBox" Property="Background" Value="{DynamicResource Brush.ErrorContainer}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding Mods.Count, Converter={conv:ZeroToCollapsed}, ConverterParameter=Invert}">
+                                <ui:Icon Glyph="info" Size="18" Foreground="{DynamicResource Brush.OnSurfaceVariant}" Margin="0,0,10,0" VerticalAlignment="Top" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" MaxWidth="500" Text="{DynamicResource settings.Mods.Empty}" />
+                            </StackPanel>
+                            <TextBlock Style="{DynamicResource Text.LabelS}" Margin="0,10,0,0" TextWrapping="Wrap" Text="{DynamicResource settings.Mods.RestartHint}" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Mods.Security}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="terminal" Title="{DynamicResource settings.Mods.AllowCommands}" Description="{DynamicResource settings.Mods.AllowCommandsDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding AllowCommands}" />
+                            </local:SettingRow>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <ui:Icon Glyph="shield" Size="18" Foreground="{DynamicResource Brush.OnSurfaceVariant}" Margin="0,0,10,0" VerticalAlignment="Top" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" MaxWidth="520" Text="{DynamicResource settings.Mods.SecurityNote}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ═════ Ogólne ═════ -->
+                <StackPanel Visibility="{Binding Section, Converter={conv:EnumEquals}, ConverterParameter=General}">
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.General.Header}" Margin="4,2,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="translate" Title="{DynamicResource settings.General.Language}">
+                                <ItemsControl Style="{StaticResource Chips}" ItemsSource="{Binding LanguageChoices}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="rocket_launch" Title="{DynamicResource settings.General.Autostart}" Description="{DynamicResource settings.General.AutostartDesc}">
+                                <ToggleButton Style="{DynamicResource Switch}" IsChecked="{Binding StartWithWindows}" />
+                            </local:SettingRow>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ───── Multimedia: Spotify (Web API, PKCE, user's own client id) ───── -->
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.Spotify.Header}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="library_music" Title="{DynamicResource settings.Spotify.Title}" Description="{Binding SpotifyStatusText}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:M3Button Variant="Filled" Icon="login" Content="{DynamicResource settings.Spotify.Connect}"
+                                                 Command="{Binding ConnectSpotifyCommand}" IsEnabled="{Binding CanConnectSpotify}"
+                                                 Visibility="{Binding IsSpotifyConnected, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}" />
+                                    <ui:M3Button Variant="Outlined" Icon="logout" Content="{DynamicResource settings.Spotify.Disconnect}"
+                                                 Command="{Binding DisconnectSpotifyCommand}"
+                                                 Visibility="{Binding IsSpotifyConnected, Converter={conv:BoolToVisibility}}" />
+                                </StackPanel>
+                            </local:SettingRow>
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.Spotify.BrowserHint}" TextWrapping="Wrap" Margin="48,0,0,4"
+                                       Visibility="{Binding IsSpotifyBusy, Converter={conv:BoolToVisibility}}" />
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Foreground="{DynamicResource Brush.Error}" Text="{Binding SpotifyErrorText}" TextWrapping="Wrap" Margin="48,0,0,4"
+                                       Visibility="{Binding SpotifyErrorText, Converter={conv:NullToVisibility}}" />
+                            <TextBox Margin="0,8,0,0" IsEnabled="{Binding CanEditSpotifyClient}" Style="{DynamicResource TextField}" ui:Field.Icon="key"
+                                     ui:Field.Placeholder="{DynamicResource settings.Spotify.ClientId}"
+                                     Text="{Binding SpotifyClientId, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <!-- exact redirect URI to register -->
+                            <Border Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Padding="12,8" Margin="0,8,0,0">
+                                <DockPanel>
+                                    <ui:M3Button DockPanel.Dock="Right" Variant="Tonal" Size="S" Icon="content_copy" Margin="8,0,0,0"
+                                                 Content="{DynamicResource settings.Spotify.Copy}" Command="{Binding CopySpotifyRedirectCommand}" />
+                                    <ui:Icon Glyph="link" Size="20" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource Brush.Primary}" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Style="{DynamicResource Text.LabelS}" Text="{DynamicResource settings.Spotify.RedirectLabel}" />
+                                        <TextBox Style="{x:Null}" IsReadOnly="True" BorderThickness="0" Background="Transparent" Padding="0"
+                                                 FontFamily="Consolas" FontSize="13" Foreground="{DynamicResource Brush.OnSurface}"
+                                                 Text="{Binding SpotifyRedirectUri, Mode=OneWay}" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+
+                            <Button Style="{StaticResource Tappable}" Command="{Binding ToggleSpotifyHelpCommand}" Margin="0,10,0,0"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                <DockPanel Background="Transparent" Margin="0,6">
+                                    <ui:Icon DockPanel.Dock="Right" Glyph="expand_more" Size="20" Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+                                    <ui:Icon Glyph="help" Size="20" Margin="0,0,10,0" Foreground="{DynamicResource Brush.Primary}" />
+                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource settings.Spotify.HelpTitle}" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </Button>
+                            <StackPanel Visibility="{Binding SpotifyHelpOpen, Converter={conv:BoolToVisibility}}" Margin="30,4,0,0">
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step1}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step2}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step3}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step4}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,2" Text="{DynamicResource settings.Spotify.Step5}" />
+                                <TextBlock Style="{DynamicResource Text.BodyS}" TextWrapping="Wrap" Margin="0,6,0,2" Text="{DynamicResource settings.Spotify.Notes}" />
+                                <ui:M3Button Variant="Tonal" Icon="open_in_new" HorizontalAlignment="Left" Margin="0,8,0,0"
+                                             Content="{DynamicResource settings.Spotify.OpenDashboard}" Command="{Binding OpenSpotifyDashboardCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.General.Data}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <local:SettingRow Icon="folder_open" Title="{DynamicResource settings.General.DataFolder}" Description="{Binding DataFolder}">
+                                <ui:M3Button Variant="Tonal" Size="S" Icon="open_in_new" Content="{DynamicResource settings.General.Open}" Command="{Binding OpenDataFolderCommand}" />
+                            </local:SettingRow>
+                            <local:SettingRow Icon="description" Title="{DynamicResource settings.General.Logs}" Description="{DynamicResource settings.General.LogsDesc}">
+                                <ui:M3Button Variant="Tonal" Size="S" Icon="open_in_new" Content="{DynamicResource settings.General.Open}" Command="{Binding OpenLogsCommand}" />
+                            </local:SettingRow>
+                        </StackPanel>
+                    </Border>
+                    <!-- O aplikacji -->
+                    <TextBlock Style="{DynamicResource Text.Overline}" Text="{DynamicResource settings.About.Header}" Margin="4,16,0,8" />
+                    <Border Style="{DynamicResource Card}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="48" Height="48" CornerRadius="16" Margin="0,0,14,0" VerticalAlignment="Top"
+                                        Background="{DynamicResource Brush.PrimaryContainer}">
+                                    <ui:Icon Glyph="vertical_align_top" Size="26" Filled="True" Foreground="{DynamicResource Brush.PrimarySoft}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{DynamicResource Text.TitleL}" Text="NotchHub" VerticalAlignment="Center" />
+                                        <Border CornerRadius="8" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center" Background="{DynamicResource Brush.Surface3}">
+                                            <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding VersionLabel}" />
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.General.About}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <ui:Icon Glyph="balance" Size="16" Foreground="{DynamicResource Brush.OnSurfaceVariant}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource settings.About.License}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                            <WrapPanel Margin="0,14,0,0">
+                                <ui:M3Button Variant="Tonal" Size="S" Icon="code" Margin="0,0,8,8" Content="{DynamicResource settings.About.GitHub}" Command="{Binding OpenRepoCommand}" />
+                                <ui:M3Button Variant="Tonal" Size="S" Icon="language" Margin="0,0,8,8" Content="{DynamicResource settings.About.Website}" Command="{Binding OpenWebsiteCommand}" />
+                                <ui:M3Button Variant="Outlined" Size="S" Icon="description" Margin="0,0,8,8" Content="{DynamicResource settings.About.Logs}" Command="{Binding OpenLogsCommand}" />
+                                <ui:M3Button Variant="Outlined" Size="S" Icon="folder_open" Margin="0,0,8,8" Content="{DynamicResource settings.About.Data}" Command="{Binding OpenDataFolderCommand}" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Wsparcie: Buy Me a Coffee -->
+                    <Border Style="{DynamicResource CardFlat}" Margin="0,12,0,0" Padding="18,16">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="44" Height="44" CornerRadius="22" Margin="0,0,14,0" VerticalAlignment="Top" Background="#33FFDD00">
+                                <ui:Icon Glyph="volunteer_activism" Size="24" Filled="True" Foreground="#FFFFDD00" />
+                            </Border>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Style="{DynamicResource Text.Body}" TextWrapping="Wrap" Text="{DynamicResource settings.About.Support}" />
+                                <Button HorizontalAlignment="Left" Margin="0,12,0,0" Cursor="Hand" Command="{Binding OpenBuyMeACoffeeCommand}"
+                                        ToolTip="buymeacoffee.com/gimpostin" AutomationProperties.Name="Buy me a coffee">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Pill" Background="#FFFFDD00" CornerRadius="21" Height="42" Padding="16,0,20,0"
+                                                    BorderThickness="2" BorderBrush="Transparent" RenderTransformOrigin="0.5,0.5">
+                                                <Border.RenderTransform><ScaleTransform /></Border.RenderTransform>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <ui:Icon Glyph="local_cafe" Size="22" Filled="True" Foreground="#FF0D0C22" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{DynamicResource settings.About.Bmc}" Foreground="#FF0D0C22" FontSize="15" FontWeight="SemiBold"
+                                                               VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Pill" Property="Background" Value="#FFFFE433" />
+                                                </Trigger>
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="Pill" Property="Background" Value="#FFF2D200" />
+                                                    <Setter TargetName="Pill" Property="RenderTransform"><Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97" /></Setter.Value></Setter>
+                                                </Trigger>
+                                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                                    <Setter TargetName="Pill" Property="BorderBrush" Value="{DynamicResource Brush.OnSurface}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

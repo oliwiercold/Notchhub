@@ -1,0 +1,415 @@
+<Window x:Class="NotchHub.Installer.SetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:NotchHub.UI.Controls;assembly=NotchHub.UI"
+        xmlns:conv="clr-namespace:NotchHub.UI.Converters;assembly=NotchHub.UI"
+        xmlns:local="clr-namespace:NotchHub.Installer.Ui"
+        Title="NotchHub Setup" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="True" ResizeMode="NoResize" Width="760" Height="720"
+        FontFamily="{DynamicResource Font.Sans}" Foreground="{DynamicResource Brush.OnSurface}"
+        TextOptions.TextFormattingMode="Ideal">
+    <Window.Resources>
+        <Style x:Key="Row" TargetType="Grid">
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+        <Style x:Key="RowTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.OnSurface}" />
+        </Style>
+        <Style x:Key="Section" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Primary}" />
+            <Setter Property="Margin" Value="4,10,0,10" />
+        </Style>
+        <Style x:Key="Sub" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.OnSurfaceVariant}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="ChipPanel" TargetType="WrapPanel">
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+        <Style x:Key="Chip" TargetType="RadioButton" BasedOn="{StaticResource FilterChip}">
+            <Setter Property="Margin" Value="0,0,8,8" />
+        </Style>
+        <Style x:Key="Group" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+            <Setter Property="CornerRadius" Value="22" />
+            <Setter Property="Padding" Value="16,14,16,2" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style x:Key="Swatch" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,6,8" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid Width="34" Height="34" Background="Transparent">
+                            <Ellipse x:Name="Ring" Stroke="{DynamicResource Brush.OnSurface}" StrokeThickness="2" Opacity="0" />
+                            <Ellipse x:Name="Dot" Margin="5" Fill="{TemplateBinding Background}" />
+                            <ui:Icon x:Name="Tick" Glyph="check" Size="16" Foreground="#CC000000" Opacity="0" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Ring" Property="Opacity" Value="1" />
+                                <Setter TargetName="Tick" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Dot" Property="Margin" Value="4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Badge" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource Brush.TertiaryContainer}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="Stage">
+        <local:SetupNotch x:Name="Notch" Fill="{DynamicResource Brush.Panel}" Outline="{DynamicResource Brush.Primary}">
+            <Grid x:Name="Body" HorizontalAlignment="Center" VerticalAlignment="Top">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="ContentShift" />
+                </Grid.RenderTransform>
+
+                <!-- ═════════════ prompt (install / upgrade) ═════════════ -->
+                <Grid x:Name="PagePrompt" Width="470" Height="184" Visibility="Collapsed">
+                    <Grid Margin="26,24,22,20">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="52" Height="52" CornerRadius="18" Background="{DynamicResource Brush.Surface2}" VerticalAlignment="Top">
+                            <Image x:Name="PromptIcon" Width="34" Height="34" RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="16,2,0,0">
+                            <DockPanel>
+                                <Border x:Name="DryBadgePrompt" Style="{StaticResource Badge}" DockPanel.Dock="Right" Margin="8,2,0,0" Visibility="Collapsed">
+                                    <TextBlock Text="{DynamicResource setup.dryRun}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Brush.OnTertiaryContainer}" />
+                                </Border>
+                                <TextBlock x:Name="PromptTitle" Style="{DynamicResource Text.TitleL}" FontSize="19" TextWrapping="Wrap" />
+                            </DockPanel>
+                            <TextBlock x:Name="PromptSub" Style="{StaticResource Sub}" Margin="0,5,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ui:M3Button Content="{DynamicResource setup.cancel}" Variant="Text" Size="M" Click="OnCancel" Margin="0,0,6,0" />
+                            <ui:M3Button Content="{DynamicResource setup.options}" Icon="tune" Variant="Tonal" Size="M" Click="OnOptions" Margin="0,0,8,0" />
+                            <ui:M3Button x:Name="InstallButton" Icon="download" Variant="Filled" Size="M" Click="OnInstall" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- ═════════════ options ═════════════ -->
+                <Grid x:Name="PageOptions" Width="560" Height="640" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DockPanel Margin="14,14,22,6">
+                        <ui:IconButton Icon="arrow_back" Variant="Standard" Size="40" Click="OnBack" ToolTip="{DynamicResource setup.back}" />
+                        <Border x:Name="DryBadgeOptions" Style="{StaticResource Badge}" DockPanel.Dock="Right" Margin="0,10,0,0">
+                            <TextBlock Text="{DynamicResource setup.dryRun}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Brush.OnTertiaryContainer}" />
+                        </Border>
+                        <TextBlock Text="{DynamicResource setup.opt.title}" Style="{DynamicResource Text.TitleL}" FontSize="19" VerticalAlignment="Center" Margin="8,0,0,0" />
+                    </DockPanel>
+
+                    <ScrollViewer x:Name="OptionsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="18,0,18,0" Focusable="False">
+                        <StackPanel x:Name="OptionsBody" Margin="0,0,0,8">
+                            <!-- language (always: also switches this installer) -->
+                            <TextBlock Text="{DynamicResource setup.opt.language}" Style="{StaticResource Section}" />
+                            <Border Style="{StaticResource Group}" Padding="16,12,16,4">
+                                <WrapPanel>
+                                    <RadioButton Style="{StaticResource Chip}" GroupName="lang" Content="Polski" ui:Chip.Icon="translate"
+                                                 IsChecked="{Binding Language, Converter={conv:EnumEquals}, ConverterParameter=pl, Mode=OneWay}" Checked="OnLangPl" />
+                                    <RadioButton Style="{StaticResource Chip}" GroupName="lang" Content="English" ui:Chip.Icon="translate"
+                                                 IsChecked="{Binding Language, Converter={conv:EnumEquals}, ConverterParameter=en, Mode=OneWay}" Checked="OnLangEn" />
+                                </WrapPanel>
+                            </Border>
+
+                            <Border x:Name="KeptNote" Background="{DynamicResource Brush.SecondaryContainer}" CornerRadius="18" Padding="14,12" Margin="0,10,0,4" Visibility="Collapsed">
+                                <DockPanel>
+                                    <ui:Icon Glyph="settings_backup_restore" Size="20" Foreground="{DynamicResource Brush.OnSecondaryContainer}" VerticalAlignment="Top" />
+                                    <TextBlock Text="{DynamicResource setup.opt.kept}" Margin="10,1,0,0" TextWrapping="Wrap" FontSize="12.5" Foreground="{DynamicResource Brush.OnSecondaryContainer}" />
+                                </DockPanel>
+                            </Border>
+
+                            <StackPanel x:Name="SettingsSections">
+                                <!-- appearance -->
+                                <TextBlock Text="{DynamicResource setup.opt.appearance}" Style="{StaticResource Section}" />
+                                <Border Style="{StaticResource Group}">
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource setup.opt.colorSource}" Style="{StaticResource RowTitle}" />
+                                        <WrapPanel Style="{StaticResource ChipPanel}">
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="src" Content="{DynamicResource setup.opt.src.wallpaper}" ui:Chip.Icon="wallpaper"
+                                                         IsChecked="{Binding Source, Converter={conv:EnumEquals}, ConverterParameter=WallpaperDominant}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="src" Content="{DynamicResource setup.opt.src.average}" ui:Chip.Icon="blur_on"
+                                                         IsChecked="{Binding Source, Converter={conv:EnumEquals}, ConverterParameter=WallpaperAverage}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="src" Content="{DynamicResource setup.opt.src.accent}" ui:Chip.Icon="palette"
+                                                         IsChecked="{Binding Source, Converter={conv:EnumEquals}, ConverterParameter=WindowsAccent}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="src" Content="{DynamicResource setup.opt.src.custom}" ui:Chip.Icon="colorize"
+                                                         IsChecked="{Binding Source, Converter={conv:EnumEquals}, ConverterParameter=Custom}" />
+                                        </WrapPanel>
+                                        <WrapPanel x:Name="SwatchPanel" Margin="0,2,0,4" Visibility="{Binding IsCustom, Converter={conv:BoolToVisibility}}" />
+
+                                        <TextBlock Text="{DynamicResource setup.opt.variant}" Style="{StaticResource RowTitle}" Margin="0,8,0,0" />
+                                        <WrapPanel Style="{StaticResource ChipPanel}">
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="var" Content="{DynamicResource setup.opt.var.TonalSpot}"
+                                                         IsChecked="{Binding Variant, Converter={conv:EnumEquals}, ConverterParameter=TonalSpot}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="var" Content="{DynamicResource setup.opt.var.Vibrant}"
+                                                         IsChecked="{Binding Variant, Converter={conv:EnumEquals}, ConverterParameter=Vibrant}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="var" Content="{DynamicResource setup.opt.var.Expressive}"
+                                                         IsChecked="{Binding Variant, Converter={conv:EnumEquals}, ConverterParameter=Expressive}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="var" Content="{DynamicResource setup.opt.var.Fidelity}"
+                                                         IsChecked="{Binding Variant, Converter={conv:EnumEquals}, ConverterParameter=Fidelity}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="var" Content="{DynamicResource setup.opt.var.Neutral}"
+                                                         IsChecked="{Binding Variant, Converter={conv:EnumEquals}, ConverterParameter=Neutral}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="var" Content="{DynamicResource setup.opt.var.Monochrome}"
+                                                         IsChecked="{Binding Variant, Converter={conv:EnumEquals}, ConverterParameter=Monochrome}" />
+                                        </WrapPanel>
+
+                                        <TextBlock Text="{DynamicResource setup.opt.animations}" Style="{StaticResource RowTitle}" Margin="0,8,0,0" />
+                                        <WrapPanel Style="{StaticResource ChipPanel}">
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="anim" Content="{DynamicResource setup.opt.anim.legacy}"
+                                                         IsChecked="{Binding Animation, Converter={conv:EnumEquals}, ConverterParameter=Legacy}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="anim" Content="{DynamicResource setup.opt.anim.refreshed}"
+                                                         IsChecked="{Binding Animation, Converter={conv:EnumEquals}, ConverterParameter=Refreshed}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="anim" Content="{DynamicResource setup.opt.anim.smooth}"
+                                                         IsChecked="{Binding Animation, Converter={conv:EnumEquals}, ConverterParameter=Smooth}" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- behavior -->
+                                <TextBlock Text="{DynamicResource setup.opt.behavior}" Style="{StaticResource Section}" />
+                                <Border Style="{StaticResource Group}">
+                                    <StackPanel>
+                                        <Grid Style="{StaticResource Row}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource setup.opt.autostart}" Style="{StaticResource RowTitle}" />
+                                                <TextBlock Text="{DynamicResource setup.opt.autostartDesc}" Style="{StaticResource Sub}" />
+                                            </StackPanel>
+                                            <ToggleButton Grid.Column="1" Style="{DynamicResource Switch}" IsChecked="{Binding StartWithWindows}" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <TextBlock Text="{DynamicResource setup.opt.hover}" Style="{StaticResource RowTitle}" />
+                                        <WrapPanel Style="{StaticResource ChipPanel}">
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="hover" Content="{DynamicResource setup.opt.hover.peek}" ui:Chip.Icon="visibility"
+                                                         IsChecked="{Binding Hover, Converter={conv:EnumEquals}, ConverterParameter=PeekThenClick}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="hover" Content="{DynamicResource setup.opt.hover.expand}" ui:Chip.Icon="expand_content"
+                                                         IsChecked="{Binding Hover, Converter={conv:EnumEquals}, ConverterParameter=ExpandOnHover}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="hover" Content="{DynamicResource setup.opt.hover.click}" ui:Chip.Icon="touch_app"
+                                                         IsChecked="{Binding Hover, Converter={conv:EnumEquals}, ConverterParameter=ClickOnly}" />
+                                        </WrapPanel>
+                                        <TextBlock Text="{DynamicResource setup.opt.reserve}" Style="{StaticResource RowTitle}" Margin="0,6,0,0" />
+                                        <TextBlock Text="{DynamicResource setup.opt.reserveDesc}" Style="{StaticResource Sub}" />
+                                        <WrapPanel Style="{StaticResource ChipPanel}">
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="reserve" Content="{DynamicResource setup.opt.reserve.off}"
+                                                         IsChecked="{Binding Reserve, Converter={conv:EnumEquals}, ConverterParameter=Off}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="reserve" Content="{DynamicResource setup.opt.reserve.notch}"
+                                                         IsChecked="{Binding Reserve, Converter={conv:EnumEquals}, ConverterParameter=Notch}" />
+                                            <RadioButton Style="{StaticResource Chip}" GroupName="reserve" Content="{DynamicResource setup.opt.reserve.dynamic}"
+                                                         IsChecked="{Binding Reserve, Converter={conv:EnumEquals}, ConverterParameter=Dynamic}" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- features -->
+                                <TextBlock Text="{DynamicResource setup.opt.features}" Style="{StaticResource Section}" />
+                                <Border Style="{StaticResource Group}">
+                                    <StackPanel>
+                                        <Grid Style="{StaticResource Row}">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource setup.opt.phone}" Style="{StaticResource RowTitle}" />
+                                                <TextBlock Text="{DynamicResource setup.opt.phoneDesc}" Style="{StaticResource Sub}" />
+                                            </StackPanel>
+                                            <ToggleButton Grid.Column="1" Style="{DynamicResource Switch}" IsChecked="{Binding Phone}" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid Style="{StaticResource Row}">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource setup.opt.clipboard}" Style="{StaticResource RowTitle}" />
+                                                <TextBlock Text="{DynamicResource setup.opt.clipboardDesc}" Style="{StaticResource Sub}" />
+                                            </StackPanel>
+                                            <ToggleButton Grid.Column="1" Style="{DynamicResource Switch}" IsChecked="{Binding Clipboard}" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid Style="{StaticResource Row}">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource setup.opt.meeting}" Style="{StaticResource RowTitle}" />
+                                                <TextBlock Text="{DynamicResource setup.opt.meetingDesc}" Style="{StaticResource Sub}" />
+                                            </StackPanel>
+                                            <ToggleButton Grid.Column="1" Style="{DynamicResource Switch}" IsChecked="{Binding MeetingBar}" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid Style="{StaticResource Row}">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{DynamicResource setup.opt.mods}" Style="{StaticResource RowTitle}" />
+                                                <TextBlock Text="{DynamicResource setup.opt.modsDesc}" Style="{StaticResource Sub}" />
+                                            </StackPanel>
+                                            <ToggleButton Grid.Column="1" Style="{DynamicResource Switch}" IsChecked="{Binding ExampleMods}" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- installation -->
+                            <TextBlock Text="{DynamicResource setup.opt.install}" Style="{StaticResource Section}" />
+                            <Border Style="{StaticResource Group}">
+                                <StackPanel>
+                                    <Grid Style="{StaticResource Row}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource setup.opt.desktop}" Style="{StaticResource RowTitle}" VerticalAlignment="Center" />
+                                        <ToggleButton Grid.Column="1" Style="{DynamicResource Switch}" IsChecked="{Binding DesktopShortcut}" />
+                                    </Grid>
+                                    <Grid Style="{StaticResource Row}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource setup.opt.startMenu}" Style="{StaticResource RowTitle}" VerticalAlignment="Center" />
+                                        <ToggleButton Grid.Column="1" Style="{DynamicResource Switch}" IsChecked="{Binding StartMenuShortcut}" />
+                                    </Grid>
+                                    <Grid Style="{StaticResource Row}">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{DynamicResource setup.opt.launchAfter}" Style="{StaticResource RowTitle}" VerticalAlignment="Center" />
+                                        <ToggleButton Grid.Column="1" Style="{DynamicResource Switch}" IsChecked="{Binding LaunchAfter}" />
+                                    </Grid>
+                                    <TextBlock Text="{DynamicResource setup.opt.folder}" Style="{StaticResource RowTitle}" />
+                                    <DockPanel Margin="0,8,0,10">
+                                        <ui:M3Button x:Name="BrowseButton" DockPanel.Dock="Right" Content="{DynamicResource setup.opt.browse}" Icon="folder_open"
+                                                     Variant="Tonal" Size="M" Margin="8,0,0,0" Click="OnBrowse" />
+                                        <TextBox x:Name="FolderBox" Style="{DynamicResource TextField}" ui:Field.Icon="folder"
+                                                 Text="{Binding InstallDir, UpdateSourceTrigger=PropertyChanged}" />
+                                    </DockPanel>
+                                    <TextBlock Text="{DynamicResource setup.opt.runtime}" Style="{StaticResource Sub}" FontSize="11.5" Margin="2,0,0,12" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="22,8,22,20">
+                        <ui:M3Button Content="{DynamicResource setup.cancel}" Variant="Text" Size="M" Click="OnCancel" Margin="0,0,8,0" />
+                        <ui:M3Button x:Name="InstallButton2" Icon="download" Variant="Filled" Size="M" Click="OnInstall" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- ═════════════ app running ═════════════ -->
+                <Grid x:Name="PageRunning" Width="470" Height="176" Visibility="Collapsed">
+                    <Grid Margin="26,24,22,20">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border Width="52" Height="52" CornerRadius="18" Background="{DynamicResource Brush.TertiaryContainer}" VerticalAlignment="Top">
+                            <ui:Icon Glyph="pause_circle" Size="28" Foreground="{DynamicResource Brush.OnTertiaryContainer}" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="16,2,0,0">
+                            <TextBlock Text="{DynamicResource setup.running.title}" Style="{DynamicResource Text.TitleL}" FontSize="19" />
+                            <TextBlock Text="{DynamicResource setup.running.sub}" Style="{StaticResource Sub}" Margin="0,5,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ui:M3Button Content="{DynamicResource setup.cancel}" Variant="Text" Size="M" Click="OnRunningCancel" Margin="0,0,8,0" />
+                            <ui:M3Button Content="{DynamicResource setup.running.close}" Icon="close" Variant="Filled" Size="M" Click="OnRunningContinue" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- ═════════════ progress ═════════════ -->
+                <Grid x:Name="PageProgress" Width="470" Height="150" Visibility="Collapsed">
+                    <StackPanel Margin="28,26,28,22">
+                        <DockPanel>
+                            <ui:LoadingIndicator DockPanel.Dock="Right" Size="30" IsActive="{Binding IsVisible, ElementName=PageProgress}" />
+                            <TextBlock x:Name="ProgressTitle" Style="{DynamicResource Text.TitleL}" FontSize="19" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <TextBlock x:Name="ProgressStep" Style="{StaticResource Sub}" Margin="0,4,0,0" />
+                        <ui:WavyProgressBar x:Name="Wave" Height="20" Margin="0,22,0,0" Value="0" IsWavy="True" IsAnimating="True" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- ═════════════ done ═════════════ -->
+                <Grid x:Name="PageDone" Width="470" Height="184" Visibility="Collapsed">
+                    <Grid Margin="26,24,22,20">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border x:Name="DoneBadge" Width="52" Height="52" CornerRadius="26" Background="{DynamicResource Brush.Primary}" VerticalAlignment="Top"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform x:Name="DoneScale" />
+                            </Border.RenderTransform>
+                            <ui:Icon x:Name="DoneIcon" Glyph="check" Size="30" Foreground="{DynamicResource Brush.OnPrimary}" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="16,2,0,0">
+                            <TextBlock x:Name="DoneTitle" Style="{DynamicResource Text.TitleL}" FontSize="19" TextWrapping="Wrap" />
+                            <TextBlock x:Name="DoneSub" Style="{StaticResource Sub}" Margin="0,5,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ui:M3Button x:Name="DoneClose" Content="{DynamicResource setup.close}" Variant="Tonal" Size="M" Click="OnCancel" Margin="0,0,8,0" />
+                            <ui:M3Button x:Name="LaunchButton" Content="{DynamicResource setup.launch}" Icon="rocket_launch" Variant="Filled" Size="M" Click="OnLaunch" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- ═════════════ error ═════════════ -->
+                <Grid x:Name="PageError" Width="490" Height="204" Visibility="Collapsed">
+                    <Grid Margin="26,24,22,20">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border Width="52" Height="52" CornerRadius="18" Background="{DynamicResource Brush.ErrorContainer}" VerticalAlignment="Top">
+                            <ui:Icon Glyph="error" Size="28" Foreground="{DynamicResource Brush.OnErrorContainer}" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="16,2,0,0">
+                            <TextBlock Text="{DynamicResource setup.error.title}" Style="{DynamicResource Text.TitleL}" FontSize="19" />
+                            <TextBlock x:Name="ErrorText" Style="{DynamicResource Text.Body}" TextWrapping="Wrap" Margin="0,6,0,0" MaxHeight="40" TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ErrorLog" Style="{StaticResource Sub}" FontSize="11.5" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ui:M3Button Content="{DynamicResource setup.close}" Variant="Text" Size="M" Click="OnCancel" Margin="0,0,8,0" />
+                            <ui:M3Button x:Name="RetryButton" Content="{DynamicResource setup.retry}" Icon="refresh" Variant="Filled" Size="M" Click="OnRetry" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- ═════════════ uninstall prompt ═════════════ -->
+                <Grid x:Name="PageUninstall" Width="520" Height="210" Visibility="Collapsed">
+                    <Grid Margin="26,24,22,20">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Border Width="52" Height="52" CornerRadius="18" Background="{DynamicResource Brush.Surface2}" VerticalAlignment="Top">
+                            <Image x:Name="UninstallIcon" Width="34" Height="34" RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="16,2,0,0">
+                            <DockPanel>
+                                <Border x:Name="DryBadgeUninstall" Style="{StaticResource Badge}" DockPanel.Dock="Right" Margin="8,2,0,0">
+                                    <TextBlock Text="{DynamicResource setup.dryRun}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Brush.OnTertiaryContainer}" />
+                                </Border>
+                                <TextBlock Text="{DynamicResource setup.title.uninstall}" Style="{DynamicResource Text.TitleL}" FontSize="19" />
+                            </DockPanel>
+                            <TextBlock Text="{DynamicResource setup.sub.uninstall}" Style="{StaticResource Sub}" Margin="0,5,0,0" />
+                            <CheckBox x:Name="RemoveData" Style="{DynamicResource Checkbox}" Content="{DynamicResource setup.removeData}" Margin="-4,10,0,0"
+                                      Foreground="{DynamicResource Brush.OnSurface}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ui:M3Button Content="{DynamicResource setup.cancel}" Variant="Text" Size="M" Click="OnCancel" Margin="0,0,8,0" />
+                            <ui:M3Button Content="{DynamicResource setup.uninstall}" Icon="delete" Variant="Filled" Size="M" Click="OnUninstall" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+            </Grid>
+        </local:SetupNotch>
+    </Grid>
+</Window>

@@ -1,0 +1,145 @@
+<UserControl x:Class="NotchHub.Features.Compact.PeekView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:NotchHub.UI.Controls;assembly=NotchHub.UI"
+             xmlns:conv="clr-namespace:NotchHub.UI.Converters;assembly=NotchHub.UI"
+             HorizontalAlignment="Center" Foreground="{DynamicResource Brush.OnSurface}">
+    <!-- Width is content driven: 380 for the player or the glance alone, ~620 for glance + player side by side. -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ───────── compact glance (next to the player) ───────── -->
+        <StackPanel Width="210" Margin="22,10,6,12" VerticalAlignment="Center"
+                    Visibility="{Binding IsCombined, Converter={conv:BoolToVisibility}}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Style="{DynamicResource Text.Display}" FontSize="40" Text="{Binding TimeText}"
+                           Foreground="{DynamicResource Brush.Primary}" Margin="0,-4,0,-2" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Margin="12,2,0,0" VerticalAlignment="Center"
+                            Visibility="{Binding HasWeather, Converter={conv:BoolToVisibility}}">
+                    <ui:Icon Glyph="{Binding WeatherGlyph}" Size="20" Filled="True" Foreground="{DynamicResource Brush.Tertiary}"
+                             VerticalAlignment="Center" />
+                    <TextBlock Style="{DynamicResource Text.Title}" Text="{Binding TemperatureText}" Margin="4,0,0,0"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </StackPanel>
+            <TextBlock Style="{DynamicResource Text.Label}" Text="{Binding DateText}" TextTrimming="CharacterEllipsis"
+                       Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <ui:Icon Glyph="event" Size="14" Foreground="{DynamicResource Brush.Pink}" VerticalAlignment="Center" />
+                <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding NextEventText}" MaxWidth="190"
+                           TextTrimming="CharacterEllipsis" Margin="5,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,5,0,0"
+                        Visibility="{Binding HasPhone, Converter={conv:BoolToVisibility}}">
+                <ui:Icon Glyph="smartphone" Size="14" Foreground="{DynamicResource Brush.OnSurfaceVariant}" VerticalAlignment="Center" />
+                <ui:Icon Glyph="{Binding PhoneBatteryGlyph}" Size="14" Margin="4,0,0,0" Foreground="{DynamicResource Brush.Success}"
+                         VerticalAlignment="Center" />
+                <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding PhoneBatteryText}" Margin="2,0,0,0"
+                           VerticalAlignment="Center" />
+                <ui:Icon Glyph="notifications" Size="14" Margin="10,0,0,0" Foreground="{DynamicResource Brush.OnSurfaceVariant}"
+                         VerticalAlignment="Center" Visibility="{Binding PhoneNotificationCount, Converter={conv:ZeroToCollapsed}}" />
+                <ui:Badge Content="{Binding PhoneNotificationCount}" Margin="3,0,0,0" VerticalAlignment="Center"
+                          Visibility="{Binding PhoneNotificationCount, Converter={conv:ZeroToCollapsed}}" />
+            </StackPanel>
+        </StackPanel>
+        <Border Grid.Column="1" Width="1" Margin="4,18" Background="{DynamicResource Brush.OutlineVariant}" Opacity="0.7"
+                Visibility="{Binding IsCombined, Converter={conv:BoolToVisibility}}" />
+
+        <!-- ───────── mini player (reference 4.png) ───────── -->
+        <Grid Grid.Column="2" Width="344" Margin="18,12,18,10" Visibility="{Binding ShowsMedia, Converter={conv:BoolToVisibility}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Width="44" Height="44" HorizontalAlignment="Left">
+                <Border CornerRadius="12" Background="{DynamicResource Brush.PrimarySoft}">
+                    <ui:Icon Glyph="music_note" Size="22" Foreground="{DynamicResource Brush.OnPrimarySoft}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <Border CornerRadius="12" Visibility="{Binding Thumbnail, Converter={conv:NullToVisibility}}">
+                    <Border.Background>
+                        <ImageBrush Stretch="UniformToFill"
+                                    ImageSource="{Binding Thumbnail, Converter={conv:BytesToImage}, ConverterParameter=88}" />
+                    </Border.Background>
+                </Border>
+            </Grid>
+            <StackPanel Margin="56,0,56,0" VerticalAlignment="Center">
+                <TextBlock Style="{DynamicResource Text.Title}" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                           HorizontalAlignment="Center" />
+                <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding Artist}" TextTrimming="CharacterEllipsis"
+                           HorizontalAlignment="Center" Margin="0,2,0,0" />
+            </StackPanel>
+
+            <Grid Grid.Row="1" Margin="0,8,0,0" Height="20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="34" />
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="Auto" MinWidth="34" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding PositionText}" VerticalAlignment="Center" />
+                <ui:WavyProgressBar Grid.Column="1" Margin="8,0" VerticalAlignment="Center" Height="20"
+                                    Value="{Binding Progress}" IsWavy="{Binding IsPlaying}" IsAnimating="{Binding IsPlaying}"
+                                    IsSeekable="{Binding CanSeek}" SeekCompleted="OnSeekCompleted" />
+                <TextBlock Grid.Column="2" Style="{DynamicResource Text.LabelS}" Text="{Binding DurationText}"
+                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+            </Grid>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
+                <ui:IconButton Icon="skip_previous" IconFilled="True" Size="40" Command="{Binding PreviousCommand}"
+                               IsEnabled="{Binding CanPrevious}" />
+                <ui:PlayPauseButton Size="40" Margin="16,0" IsChecked="{Binding IsPlaying, Mode=OneWay}"
+                                    Command="{Binding PlayPauseCommand}" />
+                <ui:IconButton Icon="skip_next" IconFilled="True" Size="40" Command="{Binding NextCommand}"
+                               IsEnabled="{Binding CanNext}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ───────── glance (no media) ───────── -->
+        <Grid Grid.ColumnSpan="3" Width="338" Margin="22,10,20,14"
+              Visibility="{Binding ShowsFullGlance, Converter={conv:BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Style="{DynamicResource Text.Display}" FontSize="48" Text="{Binding TimeText}"
+                           Foreground="{DynamicResource Brush.Primary}" Margin="0,-4,0,-2" />
+                <TextBlock Style="{DynamicResource Text.Label}" Text="{Binding DateText}"
+                           Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            Visibility="{Binding HasWeather, Converter={conv:BoolToVisibility}}">
+                    <ui:Icon Glyph="{Binding WeatherGlyph}" Size="24" Filled="True" Foreground="{DynamicResource Brush.Tertiary}"
+                             VerticalAlignment="Center" />
+                    <TextBlock Style="{DynamicResource Text.Headline}" FontSize="24" Text="{Binding TemperatureText}"
+                               Margin="6,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                    <ui:Icon Glyph="event" Size="14" Foreground="{DynamicResource Brush.Pink}" VerticalAlignment="Center" />
+                    <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding NextEventText}" MaxWidth="170"
+                               TextTrimming="CharacterEllipsis" Margin="5,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0"
+                            Visibility="{Binding HasPhone, Converter={conv:BoolToVisibility}}">
+                    <ui:Icon Glyph="smartphone" Size="14" Foreground="{DynamicResource Brush.OnSurfaceVariant}" VerticalAlignment="Center" />
+                    <ui:Icon Glyph="{Binding PhoneBatteryGlyph}" Size="14" Margin="4,0,0,0" Foreground="{DynamicResource Brush.Success}"
+                             VerticalAlignment="Center" />
+                    <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding PhoneBatteryText}" Margin="2,0,0,0"
+                               VerticalAlignment="Center" />
+                    <ui:Icon Glyph="notifications" Size="14" Margin="10,0,0,0" Foreground="{DynamicResource Brush.OnSurfaceVariant}"
+                             VerticalAlignment="Center" Visibility="{Binding PhoneNotificationCount, Converter={conv:ZeroToCollapsed}}" />
+                    <ui:Badge Content="{Binding PhoneNotificationCount}" Margin="3,0,0,0" VerticalAlignment="Center"
+                              Visibility="{Binding PhoneNotificationCount, Converter={conv:ZeroToCollapsed}}" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

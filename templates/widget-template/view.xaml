@@ -1,0 +1,56 @@
+<!--
+  Widok widżetu. Ładowany przez XamlReader (bez kodu C#: brak x:Class i obsługi zdarzeń — tylko Binding i Command).
+  DataContext (WidgetDataContext):
+    Data        odpowiedź JSON: obiekt → {Binding Data.nazwa}, tablica → {Binding Data[0].nazwa}
+    IsLoading   true w trakcie pobierania
+    Error       komunikat błędu albo null
+    UpdatedAt   czas ostatniego udanego odświeżenia (DateTime)
+    Refresh     komenda „odśwież teraz”
+  Liczby z JSON-a są typu double. Tekst z wartości: Mode=OneWay w <Run> (Run domyślnie wiąże TwoWay).
+  Kolory: zawsze {DynamicResource Brush.*} — widżet zmienia się razem z motywem / tapetą.
+  Szerokość karty: 792 DIP, wysokość najlepiej ≤ 520. Kontrolki: docs/UI-COMPONENTS.md.
+-->
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="clr-namespace:NotchHub.UI.Controls;assembly=NotchHub.UI"
+      xmlns:conv="clr-namespace:NotchHub.UI.Converters;assembly=NotchHub.UI"
+      TextElement.Foreground="{DynamicResource Brush.OnSurface}">
+    <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- nagłówek: ikona, tytuł, czas odświeżenia, przycisk odśwież -->
+    <DockPanel Margin="4,0,0,14">
+        <ui:IconButton DockPanel.Dock="Right" Icon="refresh" Variant="Tonal" Size="40" Command="{Binding Refresh}"
+                       IsEnabled="{Binding IsLoading, Converter={conv:InverseBool}}" ToolTip="Odśwież" />
+        <ui:LoadingIndicator DockPanel.Dock="Right" Size="32" Margin="0,0,10,0" IsActive="{Binding IsLoading}"
+                             Visibility="{Binding IsLoading, Converter={conv:BoolToVisibility}}" />
+        <Border Width="44" Height="44" CornerRadius="14" Background="{DynamicResource Brush.Primary}" Margin="0,0,14,0">
+            <ui:Icon Glyph="widgets" Size="24" Filled="True" Foreground="{DynamicResource Brush.OnPrimary}" />
+        </Border>
+        <StackPanel VerticalAlignment="Center">
+            <TextBlock Style="{DynamicResource Text.TitleL}" Text="Mój widżet" />
+            <TextBlock Style="{DynamicResource Text.BodyS}"
+                       Text="{Binding UpdatedAt, StringFormat='Zaktualizowano {0:HH:mm}', TargetNullValue='Ładowanie…'}" />
+        </StackPanel>
+    </DockPanel>
+
+    <!-- główna wartość -->
+    <Border Grid.Row="1" Style="{DynamicResource Card}">
+        <StackPanel>
+            <TextBlock Style="{DynamicResource Text.Overline}" Text="WARTOŚĆ" />
+            <TextBlock Style="{DynamicResource Text.Display}">
+                <Run Text="{Binding Data.value, Mode=OneWay, StringFormat=N1}" /><Run Text=" " /><Run FontSize="22"
+                     Text="{Binding Data.unit, Mode=OneWay}" />
+            </TextBlock>
+            <!-- pasek 0..1 (np. "fraction": 0.42 w JSON-ie) -->
+            <ui:WavyProgressBar Margin="0,12,0,0" Value="{Binding Data.fraction, Mode=OneWay, FallbackValue=0}" IsWavy="False" />
+        </StackPanel>
+    </Border>
+
+    <!-- błąd (widoczny tylko, gdy Error != null) -->
+    <TextBlock Grid.Row="2" Margin="4,12,0,0" TextWrapping="Wrap" Foreground="{DynamicResource Brush.Error}"
+               Text="{Binding Error}" Visibility="{Binding Error, Converter={conv:NullToVisibility}}" />
+</Grid>

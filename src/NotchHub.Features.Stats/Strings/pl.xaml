@@ -1,0 +1,34 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!-- Keys MUST be prefixed with "stats." -->
+    <sys:String x:Key="stats.cpu">Procesor</sys:String>
+    <sys:String x:Key="stats.gpu">Karta graficzna</sys:String>
+    <sys:String x:Key="stats.ram">Pamięć RAM</sys:String>
+    <sys:String x:Key="stats.gpuUnavailable">Brak danych o GPU</sys:String>
+    <sys:String x:Key="stats.procs">{0} proc.</sys:String>
+    <sys:String x:Key="stats.ramFree">{0} wolne</sys:String>
+    <sys:String x:Key="stats.disk">Dysk {0}</sys:String>
+    <sys:String x:Key="stats.network">SIEĆ</sys:String>
+    <sys:String x:Key="stats.uptime">CZAS PRACY</sys:String>
+    <sys:String x:Key="stats.uptimeDH">{0} d {1} godz.</sys:String>
+    <sys:String x:Key="stats.uptimeHM">{0} godz. {1} min</sys:String>
+    <sys:String x:Key="stats.uptimeM">{0} min</sys:String>
+    <sys:String x:Key="stats.topApps">Najpopularniejsze aplikacje • {0}</sys:String>
+    <sys:String x:Key="stats.sortToggleTip">Przełącz sortowanie RAM / CPU</sys:String>
+    <sys:String x:Key="stats.speedTitle">Szybkość internetu</sys:String>
+    <sys:String x:Key="stats.speedLast">ostatnio: {0}</sys:String>
+    <sys:String x:Key="stats.speedNever">Jeszcze nie testowano</sys:String>
+    <sys:String x:Key="stats.speedRun">Uruchom test</sys:String>
+    <sys:String x:Key="stats.speedRetry">Spróbuj ponownie</sys:String>
+    <sys:String x:Key="stats.speedCancel">Anuluj</sys:String>
+    <sys:String x:Key="stats.speedFailed">Test nie powiódł się</sys:String>
+    <sys:String x:Key="stats.mbpsDown">Mb/s ↓</sys:String>
+    <sys:String x:Key="stats.mbpsUp">Mb/s ↑</sys:String>
+    <sys:String x:Key="stats.mbps">Mb/s</sys:String>
+    <sys:String x:Key="stats.ping">ms ping</sys:String>
+    <sys:String x:Key="stats.phaseStarting">Przygotowanie…</sys:String>
+    <sys:String x:Key="stats.phaseLatency">Pomiar opóźnienia…</sys:String>
+    <sys:String x:Key="stats.phaseDownload">Pobieranie…</sys:String>
+    <sys:String x:Key="stats.phaseUpload">Wysyłanie…</sys:String>
+</ResourceDictionary>

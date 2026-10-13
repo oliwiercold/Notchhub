@@ -1,0 +1,17 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!-- Shell strings, keys prefixed with "shell." -->
+    <sys:String x:Key="shell.tab.controls">Controls</sys:String>
+    <sys:String x:Key="shell.tab.today">Today</sys:String>
+    <sys:String x:Key="shell.tab.stats">Stats</sys:String>
+    <sys:String x:Key="shell.tab.clipboard">Clipboard</sys:String>
+    <sys:String x:Key="shell.tab.phone">Phone</sys:String>
+    <sys:String x:Key="shell.tab.power">Power</sys:String>
+    <sys:String x:Key="shell.tab.settings">Settings</sys:String>
+    <sys:String x:Key="shell.tray.open">Open panel</sys:String>
+    <sys:String x:Key="shell.tray.settings">Settings</sys:String>
+    <sys:String x:Key="shell.tray.exit">Exit</sys:String>
+    <sys:String x:Key="shell.settings">Settings</sys:String>
+    <sys:String x:Key="shell.phone.status">Phone status</sys:String>
+</ResourceDictionary>

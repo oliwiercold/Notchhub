@@ -1,0 +1,9 @@
+{
+  "id": "pomodoro",
+  "name": "Pomodoro",
+  "version": "1.0.0",
+  "author": "NotchHub",
+  "description": "Timer 25/5: karta z pierścieniem postępu, kafelek z pozostałym czasem i powiadomienie w notchu po każdej fazie.",
+  "kind": "assembly",
+  "assembly": "Pomodoro.dll"
+}

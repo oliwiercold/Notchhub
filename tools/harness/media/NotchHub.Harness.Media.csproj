@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <AssemblyName>NotchHub.Harness.Media</AssemblyName>
+    <RootNamespace>NotchHub.Harness.Media</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\NotchHub.Core\NotchHub.Core.csproj" />
+    <ProjectReference Include="..\..\..\src\NotchHub.Platform.Media\NotchHub.Platform.Media.csproj" />
+  </ItemGroup>
+</Project>

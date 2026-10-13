@@ -1,0 +1,78 @@
+<UserControl x:Class="NotchHub.Gallery.GalleryPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:NotchHub.UI.Controls;assembly=NotchHub.UI"
+             xmlns:conv="clr-namespace:NotchHub.UI.Converters;assembly=NotchHub.UI"
+             Width="760" FontFamily="{DynamicResource Font.Sans}" Foreground="{DynamicResource Brush.OnSurface}">
+    <Border Background="{DynamicResource Brush.Panel}" Padding="16" CornerRadius="32">
+        <StackPanel>
+            <TextBlock x:Name="Caption" Style="{DynamicResource Text.Overline}" Text="GALLERY" Margin="4,0,0,8" />
+            <UniformGrid Columns="3" Margin="0,0,0,10">
+                <ui:QsTile Margin="0,0,6,0" Icon="wifi" Title="Wi-Fi" Subtitle="Home 5G" IsActive="True" ShowChevron="True" />
+                <ui:QsTile Margin="3,0,3,0" Icon="bluetooth" Title="Bluetooth" Subtitle="Off" ShowChevron="True" />
+                <ui:QsTile Margin="6,0,0,0" Icon="dark_mode" Title="Dark mode" Subtitle="Busy…" IsBusy="True" />
+            </UniformGrid>
+            <ui:M3Slider Icon="volume_up" Value="0.64" Margin="0,0,0,10" />
+            <Border Style="{DynamicResource Card}" Margin="0,0,0,10">
+                <DockPanel>
+                    <ui:PlayPauseButton DockPanel.Dock="Right" IsChecked="True" Margin="12,0,0,0" />
+                    <ui:PlayPauseButton DockPanel.Dock="Right" Size="40" Margin="12,0,0,0" />
+                    <StackPanel>
+                        <TextBlock Style="{DynamicResource Text.TitleL}" Text="Weightless" />
+                        <TextBlock Style="{DynamicResource Text.BodyS}" Text="Marconi Union · lofi radio" Margin="0,2,0,8" />
+                        <ui:WavyProgressBar Value="0.42" IsSeekable="True" />
+                        <ui:WavyProgressBar Value="0.7" IsWavy="False" Margin="0,4,0,0" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <ui:WavyRing Width="84" Height="84" Value="0.37">
+                    <TextBlock Style="{DynamicResource Text.Number}" Text="37%" />
+                </ui:WavyRing>
+                <ui:WavyRing Width="84" Height="84" Value="0.72" Margin="10,0,0,0" ActiveBrush="{DynamicResource Brush.Gauge.Gpu}">
+                    <TextBlock Style="{DynamicResource Text.Number}" Text="72%" />
+                </ui:WavyRing>
+                <ui:WavyRing Width="84" Height="84" Value="0.9" Margin="10,0,0,0" ActiveBrush="{DynamicResource Brush.Gauge.Ram}" IsWavy="False">
+                    <TextBlock Style="{DynamicResource Text.Number}" Text="90%" />
+                </ui:WavyRing>
+                <ui:LoadingIndicator Margin="16,0,0,0" />
+                <ui:LoadingIndicator Margin="10,0,0,0" Contained="True" Size="48" />
+                <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Style="{DynamicResource Text.Display}" Text="09:41" />
+                    <TextBlock Style="{DynamicResource Text.Headline}" Text="85 Mbps" />
+                </StackPanel>
+            </StackPanel>
+            <WrapPanel Margin="0,0,0,10">
+                <ui:M3Button Content="Filled" Icon="add" Margin="0,0,8,0" />
+                <ui:M3Button Content="Tonal" Variant="Tonal" Margin="0,0,8,0" />
+                <ui:M3Button Content="Outlined" Variant="Outlined" Margin="0,0,8,0" />
+                <ui:M3Button Content="Text" Variant="Text" Margin="0,0,8,0" />
+                <ui:M3Button Content="Small" Size="S" Margin="0,0,8,0" />
+                <ui:IconButton Icon="settings" Margin="0,0,4,0" />
+                <ui:IconButton Icon="skip_next" Variant="Filled" Margin="0,0,4,0" />
+                <ui:IconButton Icon="favorite" Variant="Tonal" IsSelected="True" Margin="0,0,4,0" />
+                <ui:IconButton Icon="push_pin" Variant="Outlined" Size="32" Margin="0,0,4,0" />
+            </WrapPanel>
+            <WrapPanel Margin="0,0,0,10">
+                <ToggleButton Style="{DynamicResource FilterChip}" Content="All" IsChecked="True" Margin="0,0,6,0" />
+                <ToggleButton Style="{DynamicResource FilterChip}" Content="Images" ui:Chip.Icon="image" Margin="0,0,12,0" />
+                <ToggleButton Style="{DynamicResource Switch}" IsChecked="True" Margin="0,0,8,0" />
+                <ToggleButton Style="{DynamicResource Switch}" Margin="0,0,12,0" />
+                <CheckBox Style="{DynamicResource Checkbox}" Content="Done" IsChecked="True" Margin="0,0,10,0" VerticalAlignment="Center" />
+                <CheckBox Style="{DynamicResource Checkbox}" Content="Todo" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <Grid>
+                    <ui:Avatar Text="Ada Lovelace" Size="32" />
+                    <ui:Badge Content="3" Margin="22,-4,0,0" />
+                </Grid>
+                <ui:Avatar Text="KDE" Size="32" Margin="8,0,0,0" />
+            </WrapPanel>
+            <TextBox Style="{DynamicResource TextField}" ui:Field.Placeholder="Search clipboard" ui:Field.Icon="search" Margin="0,0,0,10" />
+            <Border Style="{DynamicResource Divider}" Margin="0,0,0,8" />
+            <ListBox Foreground="{DynamicResource Brush.OnSurface}" Background="Transparent" BorderThickness="0" SelectedIndex="1" ItemContainerStyle="{DynamicResource ListRow}">
+                <TextBlock Text="Row one" Style="{DynamicResource Text.Body}" />
+                <TextBlock Text="Row two (selected)" Style="{DynamicResource Text.Body}" />
+                <TextBlock Text="{Binding Source=125, Converter={conv:TimeSpanClock}}" Style="{DynamicResource Text.LabelS}" />
+            </ListBox>
+        </StackPanel>
+    </Border>
+</UserControl>

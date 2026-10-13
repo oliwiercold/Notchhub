@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <RootNamespace>NotchHub.Platform.Machine</RootNamespace>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NotchHub.Core\NotchHub.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Read-only verification harness (tools/harness/machine) can force the PDH GPU backend and inspect internals. -->
+    <InternalsVisibleTo Include="MachineHarness" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NotchHub - dynamiczny notch dla Windows 11</title>
+<meta name="description" content="NotchHub: przytulny, dynamiczny notch dla Windows 11 - sterowanie, kalendarz, schowek, telefon i mody w jednym miejscu.">
+<meta name="theme-color" content="#0e0a07">
+<meta property="og:title" content="NotchHub - dynamiczny notch dla Windows 11">
+<meta property="og:description" content="Sterowanie, Dziś, statystyki, schowek, telefon i mody - w jednym ciepłym panelu u góry ekranu.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wdth,wght,ROND@6..144,75..125,300..800,0..100&family=Google+Sans+Code:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#main" data-i18n="skip">Przejdź do treści</a>
+
+<header class="nav" id="top">
+  <a class="brand" href="#top" aria-label="NotchHub">
+    <span class="brand-dot" aria-hidden="true"></span>NotchHub
+  </a>
+  <nav class="nav-links" aria-label="Sekcje">
+    <a href="#funkcje" data-i18n="nav.features">Funkcje</a>
+    <a href="#prywatnosc" data-i18n="nav.privacy">Prywatność</a>
+    <a href="#pobierz" data-i18n="nav.download">Pobierz</a>
+    <a href="#faq">FAQ</a>
+  </nav>
+  <div class="nav-actions">
+    <button class="lang" type="button" id="langBtn" aria-label="Switch language to English">EN</button>
+    <button class="btn btn-sm js-download" type="button" data-i18n="cta.download">Pobierz</button>
+  </div>
+</header>
+
+<main id="main">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow reveal" data-i18n="hero.eyebrow">Dla Windows 11 · darmowy · open source</p>
+      <h1 class="reveal" data-i18n="hero.title">Ciepły, mały <em>notch</em>, który ma wszystko pod ręką.</h1>
+      <p class="lead reveal" data-i18n="hero.lead">NotchHub chowa się u góry ekranu jak kot na kaloryferze. Najedź - zerknie. Kliknij - rozwinie się w panel sterowania, kalendarz, schowek i telefon. W stylu Material 3 Expressive.</p>
+      <div class="hero-cta reveal">
+        <button class="btn btn-lg js-download" type="button"><span data-i18n="cta.download">Pobierz</span> <span class="btn-sub" data-i18n="cta.sub">dla Windows 11</span></button>
+        <a class="btn-ghost" href="#funkcje" data-i18n="cta.tour">Zobacz, co potrafi ↓</a>
+      </div>
+    </div>
+
+    <div class="stage reveal" aria-label="Animowany podgląd notcha" role="img">
+      <div class="desk">
+        <div class="notch" id="notch" data-state="collapsed">
+          <!-- collapsed -->
+          <div class="n-collapsed">
+            <span class="n-ic wifi" aria-hidden="true"></span>
+            <span class="n-time">9:41</span>
+          </div>
+          <!-- peek -->
+          <div class="n-peek">
+            <span class="n-art" aria-hidden="true"></span>
+            <span class="n-peek-txt"><b>Lo-fi na deszcz</b><small>Kawiarnia pod lipą</small></span>
+            <span class="n-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <!-- expanded -->
+          <div class="n-expanded">
+            <div class="n-tabs"><span class="on" data-i18n="mock.t1">Sterowanie</span><span data-i18n="mock.t2">Dziś</span><span data-i18n="mock.t3">Statystyki</span><span data-i18n="mock.t4">Schowek</span><span data-i18n="mock.t5">Telefon</span></div>
+            <div class="n-grid">
+              <div class="tile on"><span class="n-ic wifi"></span><b>Wi-Fi</b><small>Dom 5G</small></div>
+              <div class="tile on"><span class="n-ic bt"></span><b>Bluetooth</b><small>Słuchawki</small></div>
+              <div class="tile"><span class="n-ic moon"></span><b data-i18n="mock.night">Nocne</b><small data-i18n="mock.off">Wył.</small></div>
+              <div class="slider"><span class="n-ic vol"></span><span class="track"><span class="fill" style="--v:.64"></span></span></div>
+              <div class="slider"><span class="n-ic sun"></span><span class="track"><span class="fill" style="--v:.42"></span></span></div>
+              <div class="media">
+                <span class="n-art"></span>
+                <span class="m-txt"><b>Lo-fi na deszcz</b><small>Kawiarnia pod lipą</small></span>
+                <svg class="wave" viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><path d="M0 6 Q5 0 10 6 T20 6 T30 6 T40 6 T50 6 T60 6 T70 6 T80 6 T90 6 T100 6 T110 6"/><path class="rest" d="M110 6 H200"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="stage-chips" role="group" aria-label="Stan notcha">
+        <button type="button" data-goto="collapsed" data-i18n="mock.s1">Zwinięty</button>
+        <button type="button" data-goto="peek" data-i18n="mock.s2">Podgląd</button>
+        <button type="button" data-goto="expanded" data-i18n="mock.s3">Rozwinięty</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="features" id="funkcje" aria-labelledby="f-title">
+    <header class="sec-head reveal">
+      <p class="eyebrow" data-i18n="f.eyebrow">Co jest w środku</p>
+      <h2 id="f-title" data-i18n="f.title">Wszystko, po co zwykle sięgasz w pięć różnych miejsc.</h2>
+    </header>
+
+    <article class="feat reveal">
+      <div class="feat-txt">
+        <span class="num">01</span>
+        <h3 data-i18n="f1.h">Sterowanie</h3>
+        <p data-i18n="f1.p">Wi-Fi, Bluetooth, głośność, jasność, tryb nocny i odtwarzacz - duże, miękkie kafelki zamiast grzebania w ustawieniach. Skróty: <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd>.</p>
+      </div>
+      <figure class="vid" data-video="media/sterowanie.mp4"><figcaption data-i18n="f1.c">Szybkie kafelki i suwaki</figcaption></figure>
+    </article>
+
+    <article class="feat flip reveal">
+      <div class="feat-txt">
+        <span class="num">02</span>
+        <h3 data-i18n="f2.h">Dziś + pasek spotkań</h3>
+        <p data-i18n="f2.p">Pogoda, zadania i najbliższe wydarzenia na jednym ekranie. Przed spotkaniem notch sam pokaże cienki pasek z odliczaniem i przyciskiem „Dołącz”.</p>
+      </div>
+      <figure class="vid" data-video="media/dzis.mp4"><figcaption data-i18n="f2.c">Dziś i pasek spotkania</figcaption></figure>
+    </article>
+
+    <article class="feat reveal">
+      <div class="feat-txt">
+        <span class="num">03</span>
+        <h3 data-i18n="f3.h">Statystyki</h3>
+        <p data-i18n="f3.p">CPU, GPU, RAM, dysk i sieć w spokojnych wykresach - plus test prędkości łącza jednym kliknięciem.</p>
+      </div>
+      <figure class="vid" data-video="media/statystyki.mp4"><figcaption data-i18n="f3.c">Wykresy i test prędkości</figcaption></figure>
+    </article>
+
+    <article class="feat flip reveal">
+      <div class="feat-txt">
+        <span class="num">04</span>
+        <h3 data-i18n="f4.h">Schowek</h3>
+        <p data-i18n="f4.p">Historia kopiowania z wyszukiwarką i przypinaniem. Teksty, linki, obrazki. <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>V</kbd> i gotowe.</p>
+      </div>
+      <figure class="vid" data-video="media/schowek.mp4"><figcaption data-i18n="f4.c">Historia schowka</figcaption></figure>
+    </article>
+
+    <article class="feat reveal">
+      <div class="feat-txt">
+        <span class="num">05</span>
+        <h3 data-i18n="f5.h">Telefon przez KDE Connect</h3>
+        <p data-i18n="f5.p">Powiadomienia z Androida, bateria, wysyłanie plików i schowek między urządzeniami. Wszystko w sieci lokalnej, bez chmury.</p>
+      </div>
+      <figure class="vid" data-video="media/telefon.mp4"><figcaption data-i18n="f5.c">Powiadomienia z telefonu</figcaption></figure>
+    </article>
+
+    <article class="feat flip reveal">
+      <div class="feat-txt">
+        <span class="num">06</span>
+        <h3 data-i18n="f6.h">Google Calendar</h3>
+        <p data-i18n="f6.p">Podepnij kalendarz adresem iCal (tylko odczyt) albo własnym kluczem OAuth (odczyt i zapis). Tokeny zostają u Ciebie, szyfrowane DPAPI.</p>
+      </div>
+      <figure class="vid" data-video="media/kalendarz.mp4"><figcaption data-i18n="f6.c">Kalendarz w notchu</figcaption></figure>
+    </article>
+
+    <article class="feat reveal">
+      <div class="feat-txt">
+        <span class="num">07</span>
+        <h3 data-i18n="f7.h">Mody</h3>
+        <p data-i18n="f7.p">Dorzuć własne widżety: od prostych, bez kodu (JSON + skrypt), po pełne moduły w C#. W zestawie przykłady: Pomodoro i kursy NBP.</p>
+      </div>
+      <figure class="vid" data-video="media/mody.mp4"><figcaption data-i18n="f7.c">Przykładowe mody</figcaption></figure>
+    </article>
+
+    <article class="feat flip reveal">
+      <div class="feat-txt">
+        <span class="num">08</span>
+        <h3 data-i18n="f8.h">Animacje, które czuć</h3>
+        <p data-i18n="f8.p">Sprężyste przejścia, falujący pasek postępu, płynne morfowanie kształtu. Material 3 Expressive - tylko cieplej.</p>
+      </div>
+      <figure class="vid" data-video="media/animacje.mp4"><figcaption data-i18n="f8.c">Zwinięty → podgląd → rozwinięty</figcaption></figure>
+    </article>
+  </section>
+
+  <!-- PRIVACY + REQUIREMENTS -->
+  <section class="duo" id="prywatnosc">
+    <div class="card reveal">
+      <h2 data-i18n="p.h">Twoje dane zostają w domu</h2>
+      <p data-i18n="p.p">Wszystko leży lokalnie w <code>%APPDATA%\NotchHub</code>. Bez kont, bez telemetrii, bez reklam.</p>
+      <ul class="ticks">
+        <li data-i18n="p.l1">Pogoda: Open-Meteo; przybliżona lokalizacja: get.geojs.io (gdy nie podasz miasta)</li>
+        <li data-i18n="p.l2">Cloudflare - tylko gdy sam uruchomisz test prędkości</li>
+        <li data-i18n="p.l3">Google - tylko jeśli podłączysz kalendarz</li>
+        <li data-i18n="p.l4">Telefon - wyłącznie przez sieć lokalną</li>
+      </ul>
+    </div>
+    <div class="card reveal" id="wymagania">
+      <h2 data-i18n="r.h">Wymagania</h2>
+      <ul class="ticks">
+        <li data-i18n="r.l1">Windows 11 (64-bit)</li>
+        <li data-i18n="r.l2"><a href="https://dotnet.microsoft.com/download/dotnet/10.0" target="_blank" rel="noopener">.NET 10 Desktop Runtime</a> (x64)</li>
+        <li data-i18n="r.l3">Opcjonalnie: telefon z Androidem i aplikacją KDE Connect</li>
+        <li data-i18n="r.l4">Opcjonalnie: konto Google do kalendarza</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section class="download reveal" id="pobierz">
+    <div class="dl-glow" aria-hidden="true"></div>
+    <h2 data-i18n="d.h">Zaparz herbatę i zainstaluj NotchHub</h2>
+    <p data-i18n="d.p">Jeden plik, bez instalatora. Uruchom, a notch pojawi się u góry ekranu.</p>
+    <button class="btn btn-lg js-download" type="button"><span data-i18n="cta.download">Pobierz</span> <span class="btn-sub" id="dlVersion" data-i18n="cta.latest">najnowsze wydanie</span></button>
+    <p class="small"><a id="releasesLink" href="#" target="_blank" rel="noopener" data-i18n="d.all">Wszystkie wydania na GitHubie</a></p>
+  </section>
+
+  <!-- FAQ -->
+  <section class="faq" id="faq" aria-labelledby="faq-title">
+    <h2 id="faq-title" class="reveal" data-i18n="q.h">Częste pytania</h2>
+
+    <details class="reveal"><summary data-i18n="q1.q">Windows pokazuje „System Windows ochronił ten komputer”. Co teraz?</summary>
+      <div class="ans" data-i18n="q1.a">To SmartScreen - plik nie jest podpisany certyfikatem (to kosztuje), więc Windows go nie zna. Kliknij <b>Więcej informacji → Uruchom mimo to</b>. Kod jest otwarty na GitHubie, możesz go też zbudować sam.</div></details>
+
+    <details class="reveal"><summary data-i18n="q2.q">Pojawiło się okno Zapory Windows. Zezwolić?</summary>
+      <div class="ans" data-i18n="q2.a">Tak, dla <b>sieci prywatnych</b>. To KDE Connect - telefon musi znaleźć komputer w sieci lokalnej. Bez tego reszta notcha działa normalnie, tylko bez telefonu.</div></details>
+
+    <details class="reveal"><summary data-i18n="q3.q">Po co mi własny Client ID Google albo Spotify?</summary>
+      <div class="ans" data-i18n="q3.a">NotchHub jest open source, więc nie może wozić ze sobą własnych kluczy. Kalendarz możesz podpiąć bez niczego - tajnym adresem iCal (tylko odczyt). Do pełnej synchronizacji utwórz darmowego klienta OAuth (typ „Desktop app”) w Google Cloud Console i wklej Client ID oraz secret w <b>Ustawienia → Kalendarz</b>. Ze Spotify jest analogicznie: aplikacja w Spotify Developer Dashboard i jej Client ID w ustawieniach. To ok. 5 minut, raz.</div></details>
+
+    <details class="reveal"><summary data-i18n="q4.q">Jak włączyć autostart albo odinstalować?</summary>
+      <div class="ans" data-i18n="q4.a">Autostart włączysz w <b>Ustawieniach</b>. Żeby odinstalować: wyłącz autostart, zamknij NotchHub z zasobnika, usuń plik <code>NotchHub.exe</code> i - jeśli chcesz wyczyścić wszystko - folder <code>%APPDATA%\NotchHub</code>.</div></details>
+
+    <details class="reveal"><summary data-i18n="q5.q">Gdzie są moje dane?</summary>
+      <div class="ans" data-i18n="q5.a">W <code>%APPDATA%\NotchHub</code>: ustawienia, zadania, kalendarz, historia schowka, sparowane telefony, mody. Wklej tę ścieżkę w pasek adresu Eksploratora.</div></details>
+
+    <details class="reveal"><summary data-i18n="q6.q">Jak dodać mod?</summary>
+      <div class="ans" data-i18n="q6.a">Wrzuć folder moda do <code>%APPDATA%\NotchHub\mods</code> i włącz go w <b>Ustawienia → Mody</b> (tam jest też poradnik). Mody bez kodu mogą uruchamiać lokalny skrypt tylko wtedy, gdy na to pozwolisz.</div></details>
+
+    <details class="reveal"><summary data-i18n="q7.q">Program się nie uruchamia.</summary>
+      <div class="ans" data-i18n="q7.a">Najczęściej brakuje <a href="https://dotnet.microsoft.com/download/dotnet/10.0" target="_blank" rel="noopener">.NET 10 Desktop Runtime</a> (x64). Zainstaluj go i spróbuj ponownie. Jeśli dalej nic - zgłoś problem na GitHubie.</div></details>
+
+    <details class="reveal"><summary data-i18n="q8.q">Chcę tylko pooglądać, bez dotykania moich danych.</summary>
+      <div class="ans" data-i18n="q8.a">Uruchom tryb demo: <code>NotchHub.exe --demo --data %TEMP%\nh-demo</code>. Przykładowe dane, nic nie zmienia się w systemie.</div></details>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <a class="brand" href="#top"><span class="brand-dot" aria-hidden="true"></span>NotchHub</a>
+      <p class="small" data-i18n="ft.p">Zrobione z kawą i cierpliwością. Niezależna implementacja protokołu KDE Connect.</p>
+    </div>
+    <div class="foot-links">
+      <a id="ghLink" href="#" target="_blank" rel="noopener">GitHub</a>
+      <a href="privacy.html" data-i18n="ft.privacy">Prywatność</a>
+      <a href="terms.html" data-i18n="ft.terms">Warunki</a>
+      <div class="bmc-slot">
+        <script data-name="bmc-button" data-slug="gimpostin" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"></script>
+        <noscript><a href="https://www.buymeacoffee.com/gimpostin" target="_blank" rel="noopener">Buy me a coffee</a></noscript>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Coffee modal -->
+<dialog class="modal" id="coffeeModal" aria-labelledby="cm-title">
+  <form method="dialog" class="modal-body">
+    <div class="cup" aria-hidden="true"><span class="steam"></span><span class="steam"></span><span class="steam"></span></div>
+    <h2 id="cm-title" data-i18n="m.h">Zanim pobierzesz…</h2>
+    <p data-i18n="m.p">NotchHub jest darmowy i zostanie darmowy. Jeśli Ci się przyda, możesz postawić mi kawę - to naprawdę pomaga. A jeśli nie teraz, to też jest w porządku.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="mCoffee" data-i18n="m.yes">☕ Postaw kawę i pobierz</button>
+      <button type="button" class="btn-ghost" id="mSkip" data-i18n="m.no">Pobierz bez kawy</button>
+    </div>
+    <label class="remember"><input type="checkbox" id="mRemember"> <span data-i18n="m.remember">Nie pytaj więcej</span></label>
+    <button class="modal-x" value="close" aria-label="Zamknij">×</button>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js" defer></script>
+</body>
+</html>

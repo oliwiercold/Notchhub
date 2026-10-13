@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    NotchHub C# mod template.
+
+    1. Copy this folder anywhere, rename MyMod.csproj / MyMod.cs / the namespace, set "id" in mod.json.
+    2. Point NotchHubDir at the folder containing NotchHub.exe (and NotchHub.UI.dll, NotchHub.Core.dll):
+         dotnet build -p:NotchHubDir="D:\Apps\NotchHub"
+       or edit the default below.
+    3. Build: dotnet build -c Release
+    4. Install: copy bin\Release\net10.0-windows10.0.22621.0\{MyMod.dll, mod.json} (+ your assets) to
+         %APPDATA%\NotchHub\mods\my-mod\
+       and restart NotchHub (Settings > Mods lists it; load errors are shown there).
+
+    Inside the NotchHub repository: instead of the HintPath references use project references, like
+    mods/examples/Pomodoro/Pomodoro.csproj does:
+      <ProjectReference Include="..\..\src\NotchHub.Core\NotchHub.Core.csproj" Private="false" />
+      <ProjectReference Include="..\..\src\NotchHub.UI\NotchHub.UI.csproj" Private="false" />
+
+    Private=false: the app already loads NotchHub.*, CommunityToolkit.Mvvm and WPF; never ship copies next to your DLL.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MyMod</RootNamespace>
+    <AssemblyName>MyMod</AssemblyName>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <NotchHubDir Condition="'$(NotchHubDir)' == ''">$(LOCALAPPDATA)\Programs\NotchHub</NotchHubDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="NotchHub.Core">
+      <HintPath>$(NotchHubDir)\NotchHub.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="NotchHub.UI">
+      <HintPath>$(NotchHubDir)\NotchHub.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- needed only if you use ObservableObject / RelayCommand yourself -->
+    <Reference Include="CommunityToolkit.Mvvm">
+      <HintPath>$(NotchHubDir)\CommunityToolkit.Mvvm.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="mod.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CheckNotchHubDir" BeforeTargets="ResolveAssemblyReferences" Condition="!Exists('$(NotchHubDir)\NotchHub.UI.dll')">
+    <Error Text="NotchHub.UI.dll not found in '$(NotchHubDir)'. Build with -p:NotchHubDir=&lt;folder with NotchHub.exe&gt;." />
+  </Target>
+</Project>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <RootNamespace>NotchHub.Platform.Shell</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <!-- Enforces XML docs on the public surface (the five services); everything else is internal. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NotchHub.Core\NotchHub.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Diagnostics harness (tools/harness/shell) unit-checks the text classifier and the gesture parser. -->
+    <InternalsVisibleTo Include="NotchHub.Harness.Shell" />
+  </ItemGroup>
+</Project>

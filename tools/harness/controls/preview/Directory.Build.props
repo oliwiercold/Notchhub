@@ -1,0 +1,10 @@
+<Project>
+  <!-- Per-feature output folders so several features can be previewed/built in parallel:
+       dotnet build tools/preview/Preview.csproj -p:Feature=Controls -->
+  <Import Project="..\..\..\..\Directory.Build.props" />
+  <PropertyGroup>
+    <Feature Condition="'$(Feature)' == ''">Controls</Feature>
+    <BaseIntermediateOutputPath>obj\$(Feature)\</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin\$(Feature)\</BaseOutputPath>
+  </PropertyGroup>
+</Project>

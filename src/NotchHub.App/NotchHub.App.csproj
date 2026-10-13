@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <RootNamespace>NotchHub.App</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <OutputType>WinExe</OutputType>
+    <!-- lightweight runtime profile for an always-running utility -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+    <SatelliteResourceLanguages>en;pl</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NotchHub.Core\NotchHub.Core.csproj" />
+    <ProjectReference Include="..\NotchHub.UI\NotchHub.UI.csproj" />
+    <ProjectReference Include="..\NotchHub.KdeConnect\NotchHub.KdeConnect.csproj" />
+    <ProjectReference Include="..\NotchHub.Platform.Media\NotchHub.Platform.Media.csproj" />
+    <ProjectReference Include="..\NotchHub.Platform.Connectivity\NotchHub.Platform.Connectivity.csproj" />
+    <ProjectReference Include="..\NotchHub.Platform.Machine\NotchHub.Platform.Machine.csproj" />
+    <ProjectReference Include="..\NotchHub.Platform.Shell\NotchHub.Platform.Shell.csproj" />
+    <ProjectReference Include="..\NotchHub.Services\NotchHub.Services.csproj" />
+    <ProjectReference Include="..\NotchHub.Demo\NotchHub.Demo.csproj" />
+    <ProjectReference Include="..\NotchHub.Features.Controls\NotchHub.Features.Controls.csproj" />
+    <ProjectReference Include="..\NotchHub.Features.Today\NotchHub.Features.Today.csproj" />
+    <ProjectReference Include="..\NotchHub.Features.Stats\NotchHub.Features.Stats.csproj" />
+    <ProjectReference Include="..\NotchHub.Features.Clipboard\NotchHub.Features.Clipboard.csproj" />
+    <ProjectReference Include="..\NotchHub.Features.Phone\NotchHub.Features.Phone.csproj" />
+    <ProjectReference Include="..\NotchHub.Features.Power\NotchHub.Features.Power.csproj" />
+    <ProjectReference Include="..\NotchHub.Features.Settings\NotchHub.Features.Settings.csproj" />
+    <ProjectReference Include="..\NotchHub.Features.Compact\NotchHub.Features.Compact.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <AssemblyName>NotchHub</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Update="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

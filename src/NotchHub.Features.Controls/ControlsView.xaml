@@ -1,0 +1,518 @@
+<UserControl x:Class="NotchHub.Features.Controls.ControlsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:NotchHub.UI.Controls;assembly=NotchHub.UI"
+             xmlns:conv="clr-namespace:NotchHub.UI.Converters;assembly=NotchHub.UI"
+             xmlns:local="clr-namespace:NotchHub.Features.Controls"
+             xmlns:mod="clr-namespace:NotchHub.UI.Modding;assembly=NotchHub.UI"
+             Width="792" Foreground="{DynamicResource Brush.OnSurface}">
+    <UserControl.Resources>
+        <!-- Wi-Fi list row: flat clickable row (same look as ListRow) -->
+        <Style x:Key="WifiRow" TargetType="Button">
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.OnSurface}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid Background="Transparent">
+                            <Border x:Name="Layer" CornerRadius="14" Background="{DynamicResource Brush.StateHover}" Opacity="0" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Layer" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Layer" Property="Background" Value="{DynamicResource Brush.StatePressed}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- PasswordBox styled like the TextField TextBox style; Tag = null while empty (shows the placeholder) -->
+        <Style x:Key="PasswordField" TargetType="PasswordBox">
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="Background" Value="{DynamicResource Brush.Surface2}" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.OnSurface}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource Brush.Primary}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource Brush.Primary}" />
+            <Setter Property="SelectionOpacity" Value="0.35" />
+            <Setter Property="FontFamily" Value="{DynamicResource Font.Sans}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Grid>
+                            <Border x:Name="Bd" CornerRadius="16" Background="{TemplateBinding Background}" BorderThickness="2" BorderBrush="Transparent" />
+                            <Border x:Name="Layer" CornerRadius="16" Background="{DynamicResource Brush.StateHover}" Opacity="0" />
+                            <DockPanel>
+                                <ui:Icon x:Name="Ic" Margin="14,0,-4,0" DockPanel.Dock="Left" Size="20" Foreground="{DynamicResource Brush.OnSurfaceVariant}"
+                                         Glyph="{Binding (ui:Field.Icon), RelativeSource={RelativeSource TemplatedParent}}" />
+                                <Grid VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                                    <Border Padding="{TemplateBinding Padding}" IsHitTestVisible="False">
+                                        <TextBlock x:Name="Placeholder" Margin="2,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"
+                                                   Foreground="{DynamicResource Brush.OnSurfaceMuted}" TextTrimming="CharacterEllipsis"
+                                                   Text="{Binding (ui:Field.Placeholder), RelativeSource={RelativeSource TemplatedParent}}" />
+                                    </Border>
+                                    <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden" />
+                                </Grid>
+                            </DockPanel>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Tag" Value="{x:Null}">
+                                <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Layer" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Brush.Primary}" />
+                                <Setter TargetName="Layer" Property="Opacity" Value="0" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.38" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <ui:SheetHost IsOpen="{Binding SheetOpen}" Title="{Binding SheetTitle}" SheetWidth="NaN">
+        <!-- ═════════════ page ═════════════ -->
+        <StackPanel>
+            <!-- Row 1: Internet / Bluetooth / Audio output -->
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <ui:QsTile Grid.Column="0" Icon="{Binding NetIcon}" ActiveIcon="{Binding NetIcon}"
+                           Title="{Binding NetTitle}" Subtitle="{Binding NetSubtitle}"
+                           IsActive="{Binding NetActive}" IsBusy="{Binding NetBusy}" ShowChevron="True"
+                           Command="{Binding ToggleNetworkCommand}" ChevronCommand="{Binding OpenNetworkSheetCommand}" />
+                <ui:QsTile Grid.Column="2" Icon="{Binding BtIcon}" ActiveIcon="{Binding BtIcon}"
+                           Title="{DynamicResource controls.bluetooth}" Subtitle="{Binding BtSubtitle}"
+                           IsActive="{Binding BtActive}" IsBusy="{Binding BtBusy}" ShowChevron="True"
+                           Command="{Binding ToggleBluetoothCommand}" ChevronCommand="{Binding OpenBluetoothSheetCommand}" />
+                <ui:QsTile Grid.Column="4" Icon="{Binding AudioIcon}" ActiveIcon="{Binding AudioIcon}"
+                           Title="{DynamicResource controls.audio}" Subtitle="{Binding AudioSubtitle}"
+                           IsActive="{Binding AudioActive}" ShowChevron="True"
+                           Command="{Binding ToggleMuteCommand}" ChevronCommand="{Binding OpenAudioSheetCommand}" />
+            </Grid>
+
+            <!-- Row 2: Night light / Dark mode -->
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <ui:QsTile Grid.Column="0" Icon="nightlight" ActiveIcon="nightlight"
+                           Title="{DynamicResource controls.nightLight}" Subtitle="{Binding NightLightSubtitle}"
+                           IsActive="{Binding NightLightOn}" ShowChevron="True"
+                           Command="{Binding ToggleNightLightCommand}" ChevronCommand="{Binding OpenNightLightSettingsCommand}">
+                    <ui:QsTile.Style>
+                        <Style TargetType="ui:QsTile" BasedOn="{StaticResource {x:Type ui:QsTile}}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NightLightSupported}" Value="False">
+                                    <Setter Property="Opacity" Value="0.5" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:QsTile.Style>
+                </ui:QsTile>
+                <ui:QsTile Grid.Column="2" Icon="dark_mode" ActiveIcon="dark_mode"
+                           Title="{DynamicResource controls.darkMode}" Subtitle="{Binding DarkModeSubtitle}"
+                           IsActive="{Binding DarkModeOn}" Command="{Binding ToggleDarkModeCommand}" />
+            </Grid>
+
+            <!-- Mods row: tiles contributed by mods (ModRegistry.Tiles, live); hidden when there are none -->
+            <ItemsControl x:Name="ModTiles" Margin="0,0,-10,0" Focusable="False"
+                          ItemsSource="{Binding Source={x:Static mod:ModRegistry.Tiles}}"
+                          Visibility="{Binding Count, Source={x:Static mod:ModRegistry.Tiles}, Converter={conv:ZeroToCollapsed}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="{Binding Count, Source={x:Static mod:ModRegistry.Tiles}, Converter={local:TileColumns}}" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="mod:ModTile">
+                        <ui:QsTile Margin="0,0,10,10" Icon="{Binding Icon}" ActiveIcon="{Binding Icon}"
+                                   Title="{Binding Title}" Subtitle="{Binding Subtitle}" IsActive="{Binding IsActive}"
+                                   ShowChevron="{Binding Converter={local:HasChevron}}"
+                                   Click="OnModTileClick" ChevronClick="OnModTileChevronClick" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Brightness (only when supported) -->
+            <ui:M3Slider Margin="0,0,0,10" Icon="brightness_6" Minimum="0" Maximum="100" SmallChange="5"
+                         Value="{Binding Brightness}" ShowValue="True" TrackHeight="44"
+                         Visibility="{Binding BrightnessSupported, Converter={conv:BoolToVisibility}}"
+                         DragStarted="OnBrightnessDragStarted" DragCompleted="OnBrightnessDragCompleted" />
+
+            <!-- Volume -->
+            <ui:M3Slider Margin="0,0,0,10" Icon="{Binding VolumeIcon}" Minimum="0" Maximum="100" SmallChange="2"
+                         Value="{Binding Volume}" ShowValue="True" TrackHeight="44"
+                         DragStarted="OnVolumeDragStarted" DragCompleted="OnVolumeDragCompleted" />
+
+            <!-- Media card -->
+            <Border Style="{DynamicResource Card}">
+                <Grid>
+                    <!-- empty state -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22"
+                                Visibility="{Binding HasMedia, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}">
+                        <ui:Icon Glyph="music_off" Size="22" Foreground="{DynamicResource Brush.OnSurfaceVariant}" VerticalAlignment="Center" />
+                        <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Style="{DynamicResource Text.Title}" Text="{DynamicResource controls.nothingPlaying}" />
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource controls.nothingPlayingHint}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Visibility="{Binding HasMedia, Converter={conv:BoolToVisibility}}">
+                        <!-- source line + session chips -->
+                        <DockPanel Margin="0,0,0,8" MinHeight="20">
+                            <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding MediaChips}" Margin="-4,-6,0,-6">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <ToggleButton Style="{DynamicResource FilterChip}" Margin="6,0,0,0" MaxWidth="150"
+                                                      Content="{Binding Name}" IsChecked="{Binding IsSelected}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <!-- Spotify session but no Web API connection: subtle link to Settings → General → Spotify -->
+                            <ui:M3Button DockPanel.Dock="Right" Variant="Text" Size="S" Icon="favorite" Margin="8,-8,-8,-8"
+                                         Content="{DynamicResource controls.spotifyConnect}"
+                                         Command="{Binding OpenSpotifySettingsCommand}" ToolTip="{DynamicResource controls.spotifyConnectTip}"
+                                         Visibility="{Binding ShowSpotifyHint, Converter={conv:BoolToVisibility}}" />
+                            <ui:Icon Glyph="{Binding AudioIcon}" Size="14" Foreground="{DynamicResource Brush.OnSurfaceVariant}" VerticalAlignment="Center" />
+                            <TextBlock Style="{DynamicResource Text.LabelS}" Margin="6,0,0,0" VerticalAlignment="Center"
+                                       Text="{Binding MediaSource}" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="56" Height="56" CornerRadius="14" Background="{DynamicResource Brush.Surface3}">
+                                <Grid>
+                                    <ui:Icon Glyph="music_note" Size="24" Foreground="{DynamicResource Brush.OnSurfaceVariant}"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Border CornerRadius="14"
+                                            Visibility="{Binding MediaArt, Converter={conv:NullToVisibility}}">
+                                        <Border.Background>
+                                            <ImageBrush Stretch="UniformToFill"
+                                                        ImageSource="{Binding MediaArt, Converter={conv:BytesToImage}, ConverterParameter=112}" />
+                                        </Border.Background>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <DockPanel Grid.Column="1" Margin="14,0,8,0" VerticalAlignment="Center">
+                                <!-- Spotify: add to / remove from "Liked Songs" (Web API) -->
+                                <ui:IconButton x:Name="LikeButton" DockPanel.Dock="Right" Icon="favorite" Variant="Standard" Size="36" Margin="6,0,0,0"
+                                               VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5"
+                                               IconFilled="{Binding IsLiked}" IsSelected="{Binding IsLiked, Mode=OneWay}"
+                                               Command="{Binding ToggleLikeCommand}" Click="OnLikeClick"
+                                               ToolTip="{DynamicResource controls.like}"
+                                               Visibility="{Binding ShowLike, Converter={conv:BoolToVisibility}}">
+                                    <ui:IconButton.RenderTransform>
+                                        <ScaleTransform x:Name="LikeScale" />
+                                    </ui:IconButton.RenderTransform>
+                                </ui:IconButton>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Style="{DynamicResource Text.TitleL}" Text="{Binding MediaTitle}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" Margin="0,2,0,0" Text="{Binding MediaArtist}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </DockPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:IconButton Icon="shuffle" Variant="Standard" Size="40" Margin="0,0,6,0" VerticalAlignment="Center"
+                                               IsSelected="{Binding IsShuffle, Mode=OneWay}" Command="{Binding ToggleShuffleCommand}"
+                                               ToolTip="{Binding ShuffleTip}"
+                                               Visibility="{Binding HasShuffle, Converter={conv:BoolToVisibility}}" />
+                                <ui:IconButton Icon="skip_previous" IconFilled="True" Variant="Tonal" Size="40" VerticalAlignment="Center"
+                                               IsEnabled="{Binding CanPrevious}" Command="{Binding PreviousCommand}" />
+                                <ui:PlayPauseButton Margin="10,0" Size="48" IsEnabled="{Binding CanPlayPause}"
+                                                    IsChecked="{Binding IsPlaying, Mode=OneWay}" Command="{Binding PlayPauseCommand}" />
+                                <ui:IconButton Icon="skip_next" IconFilled="True" Variant="Tonal" Size="40" VerticalAlignment="Center"
+                                               IsEnabled="{Binding CanNext}" Command="{Binding NextCommand}" />
+                                <ui:IconButton Icon="{Binding RepeatIcon}" Variant="Standard" Size="40" Margin="6,0,0,0" VerticalAlignment="Center"
+                                               IsSelected="{Binding IsRepeatOn, Mode=OneWay}" Command="{Binding CycleRepeatCommand}"
+                                               ToolTip="{DynamicResource controls.repeat}"
+                                               Visibility="{Binding HasRepeat, Converter={conv:BoolToVisibility}}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,12,0,0" Visibility="{Binding HasDuration, Converter={conv:BoolToVisibility}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="44" />
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="44" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding PositionText}" VerticalAlignment="Center" />
+                            <ui:WavyProgressBar Grid.Column="1" Height="20" VerticalAlignment="Center"
+                                                Value="{Binding Progress, Mode=OneWay}" IsWavy="{Binding IsPlaying}"
+                                                IsAnimating="{Binding IsPlaying}" IsSeekable="{Binding CanSeek}"
+                                                SeekCompleted="OnSeekCompleted" />
+                            <TextBlock Grid.Column="2" Style="{DynamicResource Text.LabelS}" Text="{Binding DurationText}"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <!-- ═════════════ sheets ═════════════ -->
+        <ui:SheetHost.SheetContent>
+            <Grid x:Name="SheetRoot" TextElement.Foreground="{DynamicResource Brush.OnSurface}">
+                <!-- Wi-Fi networks -->
+                <DockPanel Visibility="{Binding Sheet, Converter={conv:EnumEquals}, ConverterParameter=Network}">
+                    <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="False">
+                        <ui:M3Button DockPanel.Dock="Right" Variant="Tonal" Size="M" Icon="settings"
+                                     Content="{DynamicResource controls.networkSettings}" Command="{Binding OpenNetworkSettingsCommand}" />
+                        <ui:IconButton DockPanel.Dock="Right" Margin="0,0,8,0" Icon="refresh" Variant="Standard" Size="40"
+                                       IsEnabled="{Binding IsScanning, Converter={conv:InverseBool}}" Command="{Binding ScanCommand}" />
+                    </DockPanel>
+                    <Border DockPanel.Dock="Top" Style="{DynamicResource CardFlat}" Margin="0,0,0,10"
+                            Visibility="{Binding ScanBlockedByLocation, Converter={conv:BoolToVisibility}}">
+                        <DockPanel>
+                            <ui:M3Button DockPanel.Dock="Right" Variant="Filled" Size="S" Icon="location_on" VerticalAlignment="Center"
+                                         Content="{DynamicResource controls.locationButton}" Command="{Binding OpenLocationSettingsCommand}" />
+                            <ui:Icon Glyph="location_off" Size="20" VerticalAlignment="Center" />
+                            <TextBlock Style="{DynamicResource Text.Body}" Margin="12,0,12,0" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" Text="{DynamicResource controls.locationHint}" />
+                        </DockPanel>
+                    </Border>
+                    <Grid MinHeight="140">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Visibility="{Binding IsScanning, Converter={conv:BoolToVisibility}}">
+                            <ui:LoadingIndicator Size="40" IsActive="{Binding IsScanning}" />
+                            <TextBlock Style="{DynamicResource Text.BodyS}" Margin="0,8,0,0" HorizontalAlignment="Center"
+                                       Text="{DynamicResource controls.scanning}" />
+                        </StackPanel>
+                        <TextBlock Style="{DynamicResource Text.BodyS}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Text="{DynamicResource controls.noNetworks}"
+                                   Visibility="{Binding NoNetworks, Converter={conv:BoolToVisibility}}" />
+                        <ItemsControl ItemsSource="{Binding Networks}" Focusable="False"
+                                      Visibility="{Binding IsScanning, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}">
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer MaxHeight="270" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:WifiItemViewModel">
+                                    <StackPanel Margin="0,1">
+                                        <Button Style="{StaticResource WifiRow}"
+                                                Command="{Binding DataContext.ActivateNetworkCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}">
+                                            <DockPanel>
+                                                <ui:Icon DockPanel.Dock="Left" Glyph="{Binding Icon}" Size="22" Filled="True" VerticalAlignment="Center" />
+                                                <Grid DockPanel.Dock="Right" Width="24" VerticalAlignment="Center">
+                                                    <ui:Icon Glyph="lock" Size="16" HorizontalAlignment="Center"
+                                                             Foreground="{DynamicResource Brush.OnSurfaceVariant}"
+                                                             Visibility="{Binding ShowLock, Converter={conv:BoolToVisibility}}" />
+                                                    <ui:Icon Glyph="check" Size="20" HorizontalAlignment="Center"
+                                                             Foreground="{DynamicResource Brush.Primary}"
+                                                             Visibility="{Binding ShowCheck, Converter={conv:BoolToVisibility}}" />
+                                                    <ui:LoadingIndicator Size="24" IsActive="{Binding IsBusy}"
+                                                                         Visibility="{Binding IsBusy, Converter={conv:BoolToVisibility}}" />
+                                                </Grid>
+                                                <StackPanel Margin="14,0,8,0" VerticalAlignment="Center">
+                                                    <TextBlock Style="{DynamicResource Text.Title}" Text="{Binding Ssid}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding Detail}" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Button>
+                                        <!-- inline password entry -->
+                                        <DockPanel Margin="46,4,10,8" Visibility="{Binding IsPasswordOpen, Converter={conv:BoolToVisibility}}">
+                                            <ui:M3Button DockPanel.Dock="Right" Margin="10,0,0,0" Variant="Filled" Size="M" Icon="wifi"
+                                                         VerticalAlignment="Top" Content="{DynamicResource controls.connect}"
+                                                         IsEnabled="{Binding IsBusy, Converter={conv:InverseBool}}" Click="OnWifiConnectClick" />
+                                            <StackPanel>
+                                                <Grid>
+                                                    <PasswordBox x:Name="Pw" Style="{StaticResource PasswordField}" Padding="14,0,48,0"
+                                                                 ui:Field.Icon="key" ui:Field.Placeholder="{DynamicResource controls.password}"
+                                                                 IsEnabled="{Binding IsBusy, Converter={conv:InverseBool}}"
+                                                                 PasswordChanged="OnPasswordChanged" KeyDown="OnPasswordKeyDown"
+                                                                 IsVisibleChanged="OnPasswordVisibleChanged" />
+                                                    <TextBox x:Name="PwText" Style="{DynamicResource TextField}" Padding="14,0,48,0" Visibility="Collapsed"
+                                                             ui:Field.Icon="key" ui:Field.Placeholder="{DynamicResource controls.password}"
+                                                             IsEnabled="{Binding IsBusy, Converter={conv:InverseBool}}"
+                                                             TextChanged="OnPasswordTextChanged" KeyDown="OnPasswordKeyDown" />
+                                                    <ui:IconButton x:Name="Eye" Icon="visibility" Variant="Standard" Size="36"
+                                                                   HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"
+                                                                   Focusable="False" Click="OnTogglePasswordVisible" />
+                                                </Grid>
+                                                <TextBlock Style="{DynamicResource Text.BodyS}" Margin="14,6,0,0" TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource Brush.Error}" Text="{DynamicResource controls.wifiFailed}"
+                                                           Visibility="{Binding Failed, Converter={conv:BoolToVisibility}}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                        <!-- failure without password field (open network / saved profile) -->
+                                        <TextBlock Style="{DynamicResource Text.BodyS}" Margin="56,0,10,8" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Brush.Error}" Text="{DynamicResource controls.wifiFailed}">
+                                            <TextBlock.Visibility>
+                                                <MultiBinding Converter="{local:FailedWithoutPassword}">
+                                                    <Binding Path="Failed" />
+                                                    <Binding Path="IsPasswordOpen" />
+                                                </MultiBinding>
+                                            </TextBlock.Visibility>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </DockPanel>
+
+                <!-- Bluetooth devices -->
+                <DockPanel Visibility="{Binding Sheet, Converter={conv:EnumEquals}, ConverterParameter=Bluetooth}">
+                    <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="False">
+                        <ui:M3Button DockPanel.Dock="Right" Variant="Tonal" Size="M" Icon="settings"
+                                     Content="{DynamicResource controls.btSettings}" Command="{Binding OpenBluetoothSettingsCommand}" />
+                    </DockPanel>
+                    <Grid MinHeight="120">
+                        <TextBlock Style="{DynamicResource Text.BodyS}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Text="{DynamicResource controls.noDevices}"
+                                   Visibility="{Binding NoBtDevices, Converter={conv:BoolToVisibility}}" />
+                        <ItemsControl ItemsSource="{Binding BtDevices}">
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer MaxHeight="260" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="local:BtDeviceViewModel">
+                                    <DockPanel Margin="10,6">
+                                        <Border DockPanel.Dock="Left" Width="40" Height="40" CornerRadius="20" Background="{DynamicResource Brush.Surface3}">
+                                            <ui:Icon Glyph="{Binding Icon}" Size="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ui:M3Button DockPanel.Dock="Right" Size="S" VerticalAlignment="Center" Content="{Binding ActionText}"
+                                                     IsEnabled="{Binding IsBusy, Converter={conv:InverseBool}}"
+                                                     Command="{Binding DataContext.ToggleDeviceCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                            <ui:M3Button.Style>
+                                                <Style TargetType="ui:M3Button" BasedOn="{StaticResource {x:Type ui:M3Button}}">
+                                                    <Setter Property="Variant" Value="Tonal" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                                            <Setter Property="Variant" Value="Outlined" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ui:M3Button.Style>
+                                        </ui:M3Button>
+                                        <StackPanel Margin="14,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock Style="{DynamicResource Text.Title}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding StatusText}" />
+                                                <ui:Icon Glyph="battery_full" Size="14" Margin="10,0,2,0" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource Brush.OnSurfaceVariant}"
+                                                         Visibility="{Binding BatteryText, Converter={conv:NullToVisibility}}" />
+                                                <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding BatteryText}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </DockPanel>
+
+                <!-- Audio: outputs + mixer -->
+                <DockPanel Visibility="{Binding Sheet, Converter={conv:EnumEquals}, ConverterParameter=Audio}">
+                    <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" LastChildFill="False">
+                        <ui:M3Button DockPanel.Dock="Right" Variant="Tonal" Size="M" Icon="settings"
+                                     Content="{DynamicResource controls.soundSettings}" Command="{Binding OpenSoundSettingsCommand}" />
+                    </DockPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="5*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="6*" />
+                        </Grid.ColumnDefinitions>
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Style="{DynamicResource Text.Overline}" Margin="10,0,0,6"
+                                       Text="{DynamicResource controls.outputs}" />
+                            <ListBox ItemsSource="{Binding Outputs}" SelectedItem="{Binding SelectedOutput}" MaxHeight="250"
+                                     ItemContainerStyle="{DynamicResource ListRow}" Background="Transparent" BorderThickness="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="local:OutputViewModel">
+                                        <DockPanel>
+                                            <ui:Icon DockPanel.Dock="Left" Glyph="{Binding RadioIcon}" Size="20" VerticalAlignment="Center" />
+                                            <ui:Icon DockPanel.Dock="Left" Glyph="{Binding Icon}" Size="20" Margin="12,0,0,0" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+                                            <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock Style="{DynamicResource Text.Title}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding Description}" TextTrimming="CharacterEllipsis"
+                                                           Visibility="{Binding Description, Converter={conv:NullToVisibility}}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                        <DockPanel Grid.Column="2">
+                            <TextBlock DockPanel.Dock="Top" Style="{DynamicResource Text.Overline}" Margin="4,0,0,6"
+                                       Text="{DynamicResource controls.mixer}" />
+                            <Grid>
+                                <TextBlock Style="{DynamicResource Text.BodyS}" Margin="4,8" TextWrapping="Wrap"
+                                           Text="{DynamicResource controls.noApps}"
+                                           Visibility="{Binding NoAppSessions, Converter={conv:BoolToVisibility}}" />
+                                <ScrollViewer MaxHeight="250" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding AppSessions}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="local:AppSessionViewModel">
+                                                <Grid Margin="0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="28" />
+                                                        <ColumnDefinition Width="96" />
+                                                        <ColumnDefinition />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ui:Icon Glyph="apps" Size="20" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                             Foreground="{DynamicResource Brush.OnSurfaceVariant}"
+                                                             Visibility="{Binding IconPng, Converter={conv:NullToVisibility}, ConverterParameter=Invert}" />
+                                                    <Image Width="24" Height="24" VerticalAlignment="Center"
+                                                           Source="{Binding IconPng, Converter={conv:BytesToImage}, ConverterParameter=48}" />
+                                                    <TextBlock Grid.Column="1" Style="{DynamicResource Text.Label}" Margin="8,0,8,0" VerticalAlignment="Center"
+                                                               Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                                    <ui:M3Slider Grid.Column="2" Minimum="0" Maximum="100" SmallChange="2" TrackHeight="32"
+                                                                 Value="{Binding Volume}" ShowValue="True" VerticalAlignment="Center" />
+                                                    <ui:IconButton Grid.Column="3" Margin="6,0,0,0" Size="32" Variant="Standard"
+                                                                   Icon="{Binding MuteIcon}" IsSelected="{Binding IsMuted}"
+                                                                   Command="{Binding ToggleMuteCommand}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+                        </DockPanel>
+                    </Grid>
+                </DockPanel>
+            </Grid>
+        </ui:SheetHost.SheetContent>
+    </ui:SheetHost>
+</UserControl>

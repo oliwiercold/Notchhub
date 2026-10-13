@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$(WindowsTfm)</TargetFramework>
+    <RootNamespace>NotchHub.Platform.Media</RootNamespace>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <!-- Enforces XML docs on the public surface (the two services); interop types are internal. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NotchHub.Core\NotchHub.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Diagnostics harness (tools/harness/media) probes the read-only IPolicyConfig slots. -->
+    <InternalsVisibleTo Include="NotchHub.Harness.Media" />
+    <InternalsVisibleTo Include="NotchHub.Harness.Spotify" />
+  </ItemGroup>
+</Project>

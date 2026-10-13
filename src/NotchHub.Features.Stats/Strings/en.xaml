@@ -1,0 +1,34 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!-- Keys MUST be prefixed with "stats." -->
+    <sys:String x:Key="stats.cpu">CPU</sys:String>
+    <sys:String x:Key="stats.gpu">GPU</sys:String>
+    <sys:String x:Key="stats.ram">RAM</sys:String>
+    <sys:String x:Key="stats.gpuUnavailable">No GPU data</sys:String>
+    <sys:String x:Key="stats.procs">{0} proc</sys:String>
+    <sys:String x:Key="stats.ramFree">{0} free</sys:String>
+    <sys:String x:Key="stats.disk">Disk {0}</sys:String>
+    <sys:String x:Key="stats.network">NETWORK</sys:String>
+    <sys:String x:Key="stats.uptime">UP FOR</sys:String>
+    <sys:String x:Key="stats.uptimeDH">{0} d {1} h</sys:String>
+    <sys:String x:Key="stats.uptimeHM">{0} h {1} m</sys:String>
+    <sys:String x:Key="stats.uptimeM">{0} m</sys:String>
+    <sys:String x:Key="stats.topApps">Top apps • {0}</sys:String>
+    <sys:String x:Key="stats.sortToggleTip">Switch sorting RAM / CPU</sys:String>
+    <sys:String x:Key="stats.speedTitle">Internet speed</sys:String>
+    <sys:String x:Key="stats.speedLast">last: {0}</sys:String>
+    <sys:String x:Key="stats.speedNever">Not tested yet</sys:String>
+    <sys:String x:Key="stats.speedRun">Run speed test</sys:String>
+    <sys:String x:Key="stats.speedRetry">Try again</sys:String>
+    <sys:String x:Key="stats.speedCancel">Cancel</sys:String>
+    <sys:String x:Key="stats.speedFailed">Speed test failed</sys:String>
+    <sys:String x:Key="stats.mbpsDown">Mbps ↓</sys:String>
+    <sys:String x:Key="stats.mbpsUp">Mbps ↑</sys:String>
+    <sys:String x:Key="stats.mbps">Mbps</sys:String>
+    <sys:String x:Key="stats.ping">ms ping</sys:String>
+    <sys:String x:Key="stats.phaseStarting">Preparing…</sys:String>
+    <sys:String x:Key="stats.phaseLatency">Measuring latency…</sys:String>
+    <sys:String x:Key="stats.phaseDownload">Downloading…</sys:String>
+    <sys:String x:Key="stats.phaseUpload">Uploading…</sys:String>
+</ResourceDictionary>

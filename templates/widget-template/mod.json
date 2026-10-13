@@ -1,0 +1,33 @@
+{
+  // ── Szablon widżetu NotchHub (bez kompilacji) ──────────────────────────────────────────────
+  // 1. Skopiuj folder do %APPDATA%\NotchHub\mods\<twoje-id>\ i zmień "id".
+  // 2. Ustaw źródło danych ("url" ALBO "command"), dopasuj view.xaml, uruchom ponownie NotchHub.
+  // Komentarze // i /* */ oraz przecinki na końcu są dozwolone. Pełny opis: docs/MODDING.md.
+
+  "id": "moj-widzet",                 // wymagane, unikalne (małe litery, cyfry, myślniki)
+  "name": "Mój widżet",               // nazwa w Ustawienia → Mody
+  "version": "1.0.0",
+  "author": "Ty",
+  "description": "Co pokazuje ten widżet.",
+  "kind": "widget",                   // "widget" = XAML + JSON; "assembly" = DLL w C#
+  "view": "view.xaml",                // plik widoku (domyślnie view.xaml)
+
+  // Karta w panelu notcha (usuń, jeśli chcesz tylko kafelek).
+  "tab": { "title": "Widżet", "icon": "widgets" },        // icon = nazwa Material Symbols
+
+  // Kafelek w Sterowaniu (wiersz „Mody”). {ścieżka} = wartość z JSON-a: kropki, indeksy tablic jako liczby,
+  // np. "{items.0.name}". Kliknięcie otwiera kartę (albo odświeża dane, gdy karty nie ma).
+  // Uwaga: z kafelkiem dane odświeżają się w tle co intervalSeconds — bez kafelka tylko gdy karta jest widoczna.
+  "tile": { "title": "Mój widżet", "subtitle": "{value} {unit}", "icon": "widgets" },
+
+  "data": {
+    // A) HTTP(S) zwracające JSON:
+    "url": "https://api.example.com/value.json",
+    "headers": { "Accept": "application/json" },
+    // B) albo lokalny program wypisujący JSON na standardowe wyjście (uruchamiany w folderze moda,
+    //    wymaga Ustawienia → Mody → „Zezwalaj widżetom na uruchamianie poleceń”, limit 20 s):
+    // "command": "powershell.exe",
+    // "args": [ "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "data.ps1" ],
+    "intervalSeconds": 300            // minimum 15
+  }
+}

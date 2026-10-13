@@ -1,0 +1,22 @@
+{
+  // Przykładowy widżet bez kodu: średnie kursy walut NBP (tabela A).
+  // Dane: https://api.nbp.pl — bez klucza API. Odpowiedź to TABLICA z jednym obiektem:
+  //   [ { "table": "A", "no": "198/A/NBP/2026", "effectiveDate": "2026-10-12",
+  //       "rates": [ { "currency": "dolar amerykański", "code": "USD", "mid": 3.92 }, ... ] } ]
+  // Kolejność walut w tabeli A jest stała: 1 = USD, 7 = EUR, 9 = CHF, 10 = GBP.
+  "id": "kursy-nbp",
+  "name": "Kursy NBP",
+  "version": "1.0.0",
+  "author": "NotchHub",
+  "description": "Średnie kursy EUR, USD, GBP i CHF z tabeli A Narodowego Banku Polskiego.",
+  "kind": "widget",
+  "view": "view.xaml",
+  "tab": { "title": "Kursy", "icon": "currency_exchange" },
+  // {ścieżka} w tekstach kafelka: segmenty oddzielone kropką, indeksy tablic jako liczby.
+  "tile": { "title": "Kursy NBP", "subtitle": "EUR {0.rates.7.mid} zł", "icon": "euro" },
+  "data": {
+    "url": "https://api.nbp.pl/api/exchangerates/tables/A?format=json",
+    "intervalSeconds": 3600,
+    "headers": { "Accept": "application/json" }
+  }
+}

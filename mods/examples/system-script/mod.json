@@ -1,0 +1,18 @@
+{
+  // Przykład źródła danych "command": NotchHub uruchamia program w folderze moda i czyta JSON z jego standardowego wyjścia.
+  // Wymaga: Ustawienia → Mody → "Zezwalaj widżetom na uruchamianie poleceń".
+  // Tu: Windows PowerShell 5.1 (jest w każdym Windows 11) uruchamia info.ps1. Równie dobrze: "python" + ["info.py"].
+  "id": "system-script",
+  "name": "Mój komputer (skrypt)",
+  "version": "1.0.0",
+  "author": "NotchHub",
+  "description": "Czas pracy, bateria i pamięć — dane z lokalnego skryptu PowerShell (przykład źródła „command”).",
+  "kind": "widget",
+  "tab": { "title": "Komputer", "icon": "terminal" },
+  "tile": { "title": "Czas pracy", "subtitle": "{uptimeText} · RAM {memoryPercent}%", "icon": "schedule" },
+  "data": {
+    "command": "powershell.exe",
+    "args": [ "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "info.ps1" ],
+    "intervalSeconds": 60
+  }
+}

@@ -1,0 +1,60 @@
+name: Release
+
+# Push a tag like v1.0.0 → builds NotchHub-Setup-<version>.exe + NotchHub-<version>-portable.zip and publishes a GitHub release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Check tag matches Directory.Build.props
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $props = [xml](Get-Content -Raw Directory.Build.props)
+          $version = ($props.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1).Trim()
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          if ($tag -ne $version) { throw "Tag v$tag does not match <Version>$version</Version> in Directory.Build.props" }
+          "VERSION=$version" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Build release artifacts
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: notchhub-release
+          path: |
+            artifacts/NotchHub-Setup-*.exe
+            artifacts/NotchHub-*-portable.zip
+            artifacts/SHA256SUMS.txt
+
+      - name: GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: NotchHub ${{ env.VERSION }}
+          generate_release_notes: true
+          body: |
+            **Instalator / Installer:** `NotchHub-Setup-${{ env.VERSION }}.exe` — per-user, no admin rights.
+            **Portable:** `NotchHub-${{ env.VERSION }}-portable.zip`.
+
+            Wymaga / requires the [.NET 10 Desktop Runtime (x64)](https://dotnet.microsoft.com/download/dotnet/10.0).
+            SHA-256: see `SHA256SUMS.txt`.
+          files: |
+            artifacts/NotchHub-Setup-${{ env.VERSION }}.exe
+            artifacts/NotchHub-${{ env.VERSION }}-portable.zip
+            artifacts/SHA256SUMS.txt

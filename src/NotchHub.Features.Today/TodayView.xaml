@@ -1,0 +1,636 @@
+<UserControl x:Class="NotchHub.Features.Today.TodayView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:NotchHub.UI.Controls;assembly=NotchHub.UI"
+             xmlns:conv="clr-namespace:NotchHub.UI.Converters;assembly=NotchHub.UI"
+             xmlns:local="clr-namespace:NotchHub.Features.Today"
+             x:Name="Root" Width="792"
+             Foreground="{DynamicResource Brush.OnSurface}">
+    <UserControl.Resources>
+        <!-- Pressable surface (card / row) with hover state layer and a springy press squish. -->
+        <Style x:Key="Today.Pressable" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource Brush.Surface1}" />
+            <Setter Property="Foreground" Value="{DynamicResource Brush.OnSurface}" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="Tag" Value="24" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid x:Name="root" RenderTransformOrigin="0.5,0.5" Background="Transparent">
+                            <Grid.RenderTransform>
+                                <ScaleTransform x:Name="sc" />
+                            </Grid.RenderTransform>
+                            <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="24" />
+                            <Border x:Name="state" Background="{DynamicResource Brush.StateHover}" CornerRadius="24" Opacity="0" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="state" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="0.96" Duration="0:0:0.09" />
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="0.96" Duration="0:0:0.09" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.45">
+                                                <DoubleAnimation.EasingFunction><ElasticEase Oscillations="1" Springiness="5" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.45">
+                                                <DoubleAnimation.EasingFunction><ElasticEase Oscillations="1" Springiness="5" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Week-strip day: name + pill number + event dot. -->
+        <Style x:Key="Today.Day" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <StackPanel Background="Transparent">
+                            <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding Name}" HorizontalAlignment="Center" Margin="0,0,0,4" />
+                            <Grid Width="36" Height="36" RenderTransformOrigin="0.5,0.5">
+                                <Grid.RenderTransform><ScaleTransform x:Name="sc" /></Grid.RenderTransform>
+                                <Border x:Name="pill" CornerRadius="12" Background="Transparent" BorderThickness="0"
+                                        BorderBrush="{DynamicResource Brush.Primary}" />
+                                <Border x:Name="state" CornerRadius="12" Background="{DynamicResource Brush.StateHover}" Opacity="0" />
+                                <TextBlock x:Name="num" Style="{DynamicResource Text.Title}" Text="{Binding Number}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                            <Ellipse x:Name="dot" Width="5" Height="5" Margin="0,3,0,0" Fill="{DynamicResource Brush.Primary}"
+                                     Visibility="{Binding HasEvents, Converter={conv:BoolToVisibility}}" />
+                            <Border Height="8" Visibility="{Binding HasEvents, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsToday}" Value="True">
+                                <Setter TargetName="pill" Property="Background" Value="{DynamicResource Brush.PrimarySoft}" />
+                                <Setter TargetName="num" Property="Foreground" Value="{DynamicResource Brush.OnPrimarySoft}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="pill" Property="BorderThickness" Value="1.5" />
+                                <Setter TargetName="pill" Property="Background" Value="{DynamicResource Brush.Surface3}" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="state" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="0.86" Duration="0:0:0.08" />
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="0.86" Duration="0:0:0.08" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.45">
+                                                <DoubleAnimation.EasingFunction><ElasticEase Oscillations="1" Springiness="4" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="sc" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.45">
+                                                <DoubleAnimation.EasingFunction><ElasticEase Oscillations="1" Springiness="4" /></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Calendar color bar of an event (falls back to pink). -->
+        <Style x:Key="Today.EventBar" TargetType="Rectangle">
+            <Setter Property="Fill" Value="{DynamicResource Brush.Pink}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasColor}" Value="True">
+                    <Setter Property="Fill" Value="{Binding ColorBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Color swatch toggle. -->
+        <Style x:Key="Today.Swatch" TargetType="ToggleButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Width="30" Height="30" Background="Transparent">
+                            <Ellipse x:Name="ring" Stroke="{DynamicResource Brush.OnSurface}" StrokeThickness="2" Opacity="0" />
+                            <Ellipse x:Name="fill" Margin="4" Fill="{DynamicResource Brush.Pink}" />
+                            <Ellipse Margin="4" Fill="{Binding Brush}" Visibility="{Binding HasBrush, Converter={conv:BoolToVisibility}}" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ring" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </UserControl.Resources>
+
+    <ui:SheetHost IsOpen="{Binding IsEventSheetOpen, Mode=TwoWay}" Title="{DynamicResource today.event.add}">
+        <Grid Height="384">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="172" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="268" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ───────── left: clock + weather ───────── -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Border Style="{DynamicResource Card}">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Style="{DynamicResource Text.Display}" Text="{Binding ClockHours}" HorizontalAlignment="Center" LineHeight="58" LineStackingStrategy="BlockLineHeight" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,6">
+                            <Ellipse Width="7" Height="7" Fill="{DynamicResource Brush.Primary}" />
+                            <Ellipse Width="7" Height="7" Margin="7,0" Fill="{DynamicResource Brush.Primary}" Opacity="0.65" />
+                            <Ellipse Width="7" Height="7" Fill="{DynamicResource Brush.Primary}" Opacity="0.35" />
+                        </StackPanel>
+                        <TextBlock Style="{DynamicResource Text.Display}" Text="{Binding ClockMinutes}" HorizontalAlignment="Center" LineHeight="58" LineStackingStrategy="BlockLineHeight" />
+                        <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding ClockDate}" HorizontalAlignment="Center" Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <Button Grid.Row="2" Style="{StaticResource Today.Pressable}" Command="{Binding RefreshWeatherNowCommand}"
+                        ToolTip="{DynamicResource today.weather.refresh}" Height="158">
+                    <Grid>
+                        <!-- data -->
+                        <StackPanel VerticalAlignment="Center" Visibility="{Binding WeatherHasData, Converter={conv:BoolToVisibility}}">
+                            <ui:Icon Glyph="{Binding WeatherIcon}" Size="34" Filled="True" HorizontalAlignment="Center">
+                                <ui:Icon.Style>
+                                    <Style TargetType="ui:Icon">
+                                        <Setter Property="Foreground" Value="{DynamicResource Brush.Primary}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding WeatherIsSun}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource Brush.Warning}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Icon.Style>
+                            </ui:Icon>
+                            <TextBlock Style="{DynamicResource Text.Headline}" Text="{Binding WeatherTemp}" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            <TextBlock Style="{DynamicResource Text.Label}" Text="{Binding WeatherDescription}" HorizontalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Style="{DynamicResource Text.LabelS}" HorizontalAlignment="Center" Margin="0,3,0,0" TextTrimming="CharacterEllipsis">
+                                <Run Text="{Binding WeatherMinMax, Mode=OneWay}" /><Run Text=" • " /><Run Text="{Binding WeatherLocation, Mode=OneWay}" />
+                            </TextBlock>
+                        </StackPanel>
+                        <!-- error -->
+                        <StackPanel VerticalAlignment="Center" Visibility="{Binding WeatherError, Converter={conv:BoolToVisibility}}">
+                            <ui:Icon Glyph="cloud_off" Size="30" HorizontalAlignment="Center" Foreground="{DynamicResource Brush.OnSurfaceVariant}" />
+                            <TextBlock Style="{DynamicResource Text.Label}" Text="{DynamicResource today.weather.error}" HorizontalAlignment="Center" Margin="0,6,0,0" TextAlignment="Center" TextWrapping="Wrap" />
+                            <TextBlock Style="{DynamicResource Text.LabelS}" Text="{DynamicResource today.weather.tapRetry}" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <!-- disabled -->
+                        <StackPanel VerticalAlignment="Center" Visibility="{Binding WeatherDisabled, Converter={conv:BoolToVisibility}}">
+                            <ui:Icon Glyph="cloud_off" Size="30" HorizontalAlignment="Center" Foreground="{DynamicResource Brush.OnSurfaceMuted}" />
+                            <TextBlock Style="{DynamicResource Text.LabelS}" Text="{DynamicResource today.weather.disabled}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                        </StackPanel>
+                        <!-- loading -->
+                        <ui:LoadingIndicator Size="22" IsActive="{Binding WeatherLoading}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-6,-6,0"
+                                             Visibility="{Binding WeatherLoading, Converter={conv:BoolToVisibility}}" />
+                    </Grid>
+                </Button>
+            </Grid>
+
+            <!-- ───────── middle: week + timer ───────── -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Border Style="{DynamicResource Card}" Padding="16,14,16,14">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,8">
+                            <TextBlock DockPanel.Dock="Right" Style="{DynamicResource Text.LabelS}" Text="{Binding WeekRange}" VerticalAlignment="Center" />
+                            <TextBlock Style="{DynamicResource Text.Title}" Text="{DynamicResource today.thisWeek}" />
+                        </DockPanel>
+                        <ItemsControl ItemsSource="{Binding Days}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource Today.Day}" CommandParameter="{Binding}"
+                                            Command="{Binding DataContext.SelectDayCommand, ElementName=Root}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <!-- events: compact next-event card ⇄ expanded day agenda (height animated in code-behind) -->
+                        <Border x:Name="EventsBox" Background="{DynamicResource Brush.Surface2}" CornerRadius="16" Margin="0,6,0,0" Height="58" ClipToBounds="True">
+                            <Grid>
+                                <!-- compact -->
+                                <Grid x:Name="CompactEvents" Background="Transparent" Cursor="Hand" MouseLeftButtonUp="OnCompactEventsClick"
+                                      Visibility="{Binding IsDayExpanded, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource today.noEvents}" Margin="14,0" VerticalAlignment="Center"
+                                               Visibility="{Binding HasNoEvents, Converter={conv:BoolToVisibility}}" />
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,4">
+                                        <ItemsControl ItemsSource="{Binding Events}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type local:EventItem}">
+                                                    <Grid Background="Transparent" Margin="10,4,4,4" MouseRightButtonUp="OnEventRightClick" ToolTip="{DynamicResource today.day.expandHint}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Rectangle Width="4" RadiusX="2" RadiusY="2" Margin="0,1,10,1" Style="{StaticResource Today.EventBar}" />
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Style="{DynamicResource Text.Label}" Text="{Binding Header}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Style="{DynamicResource Text.BodyS}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                        <ui:IconButton Grid.Column="2" Icon="delete" Size="32" Variant="Tonal" Command="{Binding DeleteCommand}"
+                                                                       Visibility="{Binding ShowDelete, Converter={conv:BoolToVisibility}}"
+                                                                       ToolTip="{DynamicResource common.delete}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                    <ui:IconButton Grid.Column="1" Icon="add" Size="32" Variant="Tonal" Margin="4,0,12,0" VerticalAlignment="Center"
+                                                   Command="{Binding OpenEventSheetCommand}" ToolTip="{DynamicResource today.event.add}" />
+                                </Grid>
+
+                                <!-- expanded: every event of the selected day -->
+                                <DockPanel x:Name="DayAgenda" Visibility="{Binding IsDayExpanded, Converter={conv:BoolToVisibility}}">
+                                    <DockPanel DockPanel.Dock="Top" Margin="14,8,8,4">
+                                        <ui:IconButton DockPanel.Dock="Right" Icon="expand_less" Size="32" Variant="Standard" Margin="2,0,0,0"
+                                                       Command="{Binding CollapseDayCommand}" ToolTip="{DynamicResource today.day.collapse}" />
+                                        <ui:IconButton DockPanel.Dock="Right" Icon="add" Size="32" Variant="Tonal"
+                                                       Command="{Binding OpenEventSheetCommand}" ToolTip="{DynamicResource today.event.add}" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Style="{DynamicResource Text.Label}" Text="{Binding DayTitle}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding DayCount}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                    <Grid>
+                                        <TextBlock Style="{DynamicResource Text.BodyS}" Text="{DynamicResource today.day.empty}" Margin="14,10" TextWrapping="Wrap"
+                                                   Visibility="{Binding DayHasNoEvents, Converter={conv:BoolToVisibility}}" />
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="6,0,6,6">
+                                            <ItemsControl ItemsSource="{Binding DayEvents}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type local:EventItem}">
+                                                        <Border x:Name="row" CornerRadius="12" Padding="8,7,6,7" Margin="0,2" Background="{DynamicResource Brush.Surface1}"
+                                                                BorderBrush="{DynamicResource Brush.Primary}" BorderThickness="0"
+                                                                MouseRightButtonUp="OnEventRightClick" ToolTip="{Binding SourceName}">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="54" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <Rectangle Width="4" RadiusX="2" RadiusY="2" Margin="0,0,8,0" Style="{StaticResource Today.EventBar}" />
+                                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                    <TextBlock Style="{DynamicResource Text.Label}" Text="{Binding Header}" TextWrapping="Wrap" />
+                                                                    <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding EndText}"
+                                                                               Visibility="{Binding HasEnd, Converter={conv:BoolToVisibility}}" />
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="4,0,6,0">
+                                                                    <TextBlock Style="{DynamicResource Text.Body}" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                                                                    <StackPanel Orientation="Horizontal" Margin="0,1,0,0" Visibility="{Binding HasLocation, Converter={conv:BoolToVisibility}}">
+                                                                        <ui:Icon Glyph="location_on" Size="13" Foreground="{DynamicResource Brush.OnSurfaceVariant}" Margin="0,0,3,0" VerticalAlignment="Center" />
+                                                                        <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding Location}" TextTrimming="CharacterEllipsis" MaxWidth="150" />
+                                                                    </StackPanel>
+                                                                </StackPanel>
+                                                                <Grid Grid.Column="3" VerticalAlignment="Center">
+                                                                    <Border CornerRadius="8" Padding="6,1" Background="{DynamicResource Brush.Surface3}"
+                                                                            Visibility="{Binding ShowDelete, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}">
+                                                                        <TextBlock Style="{DynamicResource Text.LabelS}" Text="{Binding SourceLabel}" />
+                                                                    </Border>
+                                                                    <ui:IconButton Icon="delete" Size="32" Variant="Tonal" Command="{Binding DeleteCommand}"
+                                                                                   Visibility="{Binding ShowDelete, Converter={conv:BoolToVisibility}}"
+                                                                                   ToolTip="{DynamicResource common.delete}" />
+                                                                </Grid>
+                                                            </Grid>
+                                                        </Border>
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPast}" Value="True">
+                                                                <Setter TargetName="row" Property="Opacity" Value="0.55" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsNow}" Value="True">
+                                                                <Setter TargetName="row" Property="BorderThickness" Value="1.5" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Grid>
+                                </DockPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- timer -->
+                <Border x:Name="TimerCard" Grid.Row="2" Style="{DynamicResource Card}" Padding="16,14,16,14">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:WavyRing Width="96" Height="96" Value="{Binding TimerValue}" IsWavy="{Binding TimerIsWavy}" Thickness="7"
+                                     ActiveBrush="{DynamicResource Brush.Primary}" VerticalAlignment="Center">
+                            <TextBlock Style="{DynamicResource Text.Title}" FontSize="17" Text="{Binding TimerText}" />
+                        </ui:WavyRing>
+                        <Grid Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="8" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid IsEnabled="{Binding TimerIsIdle}">
+                                <TextBox x:Name="HoursField" Style="{DynamicResource TextField}" Validation.ErrorTemplate="{x:Null}" TextAlignment="Right" Padding="0,0,26,0"
+                                         Text="{Binding TimerHours, UpdateSourceTrigger=PropertyChanged}" Tag="h"
+                                         PreviewMouseWheel="OnTimerFieldWheel" PreviewKeyDown="OnTimerFieldKey" />
+                                <TextBlock Style="{DynamicResource Text.LabelS}" Text="h" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" IsHitTestVisible="False" />
+                            </Grid>
+                            <Grid Grid.Column="2" IsEnabled="{Binding TimerIsIdle}">
+                                <TextBox x:Name="MinutesField" Style="{DynamicResource TextField}" Validation.ErrorTemplate="{x:Null}" TextAlignment="Right" Padding="0,0,34,0"
+                                         Text="{Binding TimerMinutes, UpdateSourceTrigger=PropertyChanged, StringFormat=00}" Tag="m"
+                                         PreviewMouseWheel="OnTimerFieldWheel" PreviewKeyDown="OnTimerFieldKey" />
+                                <TextBlock Style="{DynamicResource Text.LabelS}" Text="min" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" IsHitTestVisible="False" />
+                            </Grid>
+                            <ui:M3Button Grid.Row="2" Variant="Filled" Size="M" Icon="{Binding TimerPrimaryIcon}" Content="{Binding TimerPrimaryLabel}"
+                                         Command="{Binding TimerPrimaryCommand}" HorizontalAlignment="Stretch" />
+                            <ui:M3Button Grid.Row="2" Grid.Column="2" Variant="Tonal" Size="M" Icon="restart_alt" Content="{DynamicResource today.timer.reset}"
+                                         Command="{Binding TimerResetCommand}" HorizontalAlignment="Stretch" />
+                        </Grid>
+                        <!-- presets (idle) / +1 min (active) -->
+                        <ItemsControl Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,0,0" ItemsSource="{Binding Presets}"
+                                      Visibility="{Binding TimerIsIdle, Converter={conv:BoolToVisibility}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <ToggleButton Style="{DynamicResource FilterChip}" Content="{Binding Label}" Margin="3,0" HorizontalAlignment="Stretch"
+                                                  IsChecked="{Binding IsSelected, Mode=OneWay}" CommandParameter="{Binding}"
+                                                  Command="{Binding DataContext.SelectPresetCommand, ElementName=Root}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <ui:M3Button Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,0,0" Variant="Tonal" Size="S" Icon="add" Content="{DynamicResource today.timer.addMinute}"
+                                     Command="{Binding TimerAddMinuteCommand}" HorizontalAlignment="Stretch"
+                                     Visibility="{Binding TimerIsActive, Converter={conv:BoolToVisibility}}" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- ───────── right: to-do ───────── -->
+            <Border Grid.Column="4" Style="{DynamicResource Card}" Padding="14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <DockPanel Margin="2,0,0,8">
+                        <ui:WavyRing DockPanel.Dock="Right" Width="34" Height="34" Thickness="3" Amplitude="0.6" WaveCount="8" GapDegrees="14"
+                                     Value="{Binding TodoProgress}" ActiveBrush="{DynamicResource Brush.Success}">
+                            <TextBlock FontSize="10" FontWeight="SemiBold" Text="{Binding TodoProgressText}" />
+                        </ui:WavyRing>
+                        <TextBlock Style="{DynamicResource Text.Title}" Text="{DynamicResource today.todo.title}" VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <StackPanel Grid.Row="1" VerticalAlignment="Center" Visibility="{Binding HasNoTodos, Converter={conv:BoolToVisibility}}">
+                        <ui:Icon Glyph="task_alt" Size="32" HorizontalAlignment="Center" Foreground="{DynamicResource Brush.OnSurfaceMuted}" />
+                        <TextBlock Style="{DynamicResource Text.LabelS}" Text="{DynamicResource today.todo.empty}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Todos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type local:TodoVm}">
+                                    <Border x:Name="row" Background="{DynamicResource Brush.Surface2}" CornerRadius="14" Margin="0,0,0,6" MinHeight="40">
+                                        <Grid Margin="10,4,4,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <CheckBox Style="{DynamicResource Checkbox}" IsChecked="{Binding IsDone}" VerticalAlignment="Center" />
+                                            <Grid Grid.Column="1" Margin="10,0,4,0" VerticalAlignment="Center" Background="Transparent"
+                                                  MouseLeftButtonDown="OnTodoTextMouseDown">
+                                                <Grid HorizontalAlignment="Left" Visibility="{Binding IsEditing, Converter={conv:BoolToVisibility}, ConverterParameter=Invert}">
+                                                    <TextBlock x:Name="txt" Style="{DynamicResource Text.Body}" Text="{Binding Text}" TextTrimming="CharacterEllipsis" />
+                                                    <Rectangle x:Name="strike" Height="1.5" VerticalAlignment="Center" Margin="-1,1,-1,0" RenderTransformOrigin="0,0.5"
+                                                               Fill="{DynamicResource Brush.OnSurfaceMuted}">
+                                                        <Rectangle.RenderTransform><ScaleTransform x:Name="strikeScale" ScaleX="0" /></Rectangle.RenderTransform>
+                                                    </Rectangle>
+                                                </Grid>
+                                                <TextBox Style="{DynamicResource TextField}" Text="{Binding EditText, UpdateSourceTrigger=PropertyChanged}"
+                                                         Visibility="{Binding IsEditing, Converter={conv:BoolToVisibility}}"
+                                                         IsVisibleChanged="OnEditBoxVisible" KeyDown="OnEditBoxKey" LostKeyboardFocus="OnEditBoxLostFocus" />
+                                            </Grid>
+                                            <ui:IconButton x:Name="del" Grid.Column="2" Icon="close" Size="32" Command="{Binding DeleteCommand}"
+                                                           Visibility="Hidden" ToolTip="{DynamicResource common.delete}" />
+                                        </Grid>
+                                    </Border>
+                                    <DataTemplate.Triggers>
+                                        <Trigger SourceName="row" Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="del" Property="Visibility" Value="Visible" />
+                                        </Trigger>
+                                        <DataTrigger Binding="{Binding IsDone}" Value="True">
+                                            <Setter TargetName="txt" Property="Foreground" Value="{DynamicResource Brush.OnSurfaceMuted}" />
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="strikeScale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.28">
+                                                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut" /></DoubleAnimation.EasingFunction>
+                                                        </DoubleAnimation>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="strikeScale" Storyboard.TargetProperty="ScaleX" To="0" Duration="0:0:0.18" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Grid Grid.Row="2" Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Style="{DynamicResource TextField}" ui:Field.Placeholder="{DynamicResource today.todo.add}" ui:Field.Icon="add"
+                                 Text="{Binding NewTodoText, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding AddTodoCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <ui:IconButton Grid.Column="1" Icon="arrow_forward" Size="40" Variant="Filled" Margin="6,0,0,0"
+                                       Command="{Binding AddTodoCommand}" ToolTip="{DynamicResource today.todo.addButton}" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ───────── add-event sheet ───────── -->
+        <ui:SheetHost.SheetContent>
+            <Grid Margin="4,0,4,4" TextElement.Foreground="{DynamicResource Brush.OnSurface}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="14" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="14" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBox Grid.ColumnSpan="3" x:Name="EventTitleBox" Style="{DynamicResource TextField}" ui:Field.Icon="event"
+                         ui:Field.Placeholder="{DynamicResource today.event.titlePlaceholder}"
+                         Text="{Binding NewTitle, UpdateSourceTrigger=PropertyChanged}">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Enter" Command="{Binding SaveEventCommand}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+
+                <TextBlock Grid.Row="2" Style="{DynamicResource Text.Label}" Text="{DynamicResource today.event.date}" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal">
+                    <ToggleButton Style="{DynamicResource FilterChip}" Content="{DynamicResource common.today}" IsChecked="{Binding NewIsToday, Mode=OneWay}"
+                                  Command="{Binding SetNewDayCommand}" CommandParameter="0" />
+                    <ToggleButton Style="{DynamicResource FilterChip}" Content="{DynamicResource today.tomorrowChip}" IsChecked="{Binding NewIsTomorrow, Mode=OneWay}"
+                                  Command="{Binding SetNewDayCommand}" CommandParameter="1" Margin="6,0,16,0" />
+                    <ui:IconButton Icon="chevron_left" Size="32" Variant="Tonal" Command="{Binding ShiftNewDayCommand}" CommandParameter="-1" />
+                    <TextBlock Style="{DynamicResource Text.Title}" Text="{Binding NewDateText}" MinWidth="110" TextAlignment="Center" VerticalAlignment="Center" />
+                    <ui:IconButton Icon="chevron_right" Size="32" Variant="Tonal" Command="{Binding ShiftNewDayCommand}" CommandParameter="1" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="4" Style="{DynamicResource Text.Label}" Text="{DynamicResource today.event.start}" VerticalAlignment="Center" />
+                <StackPanel Grid.Row="4" Grid.Column="2" Orientation="Horizontal">
+                    <ui:IconButton Icon="remove" Size="32" Variant="Tonal" Command="{Binding ShiftHourCommand}" CommandParameter="-1" ToolTip="-1 h" />
+                    <ui:IconButton Icon="add" Size="32" Variant="Tonal" Command="{Binding ShiftHourCommand}" CommandParameter="1" Margin="4,0,0,0" ToolTip="+1 h" />
+                    <TextBlock Style="{DynamicResource Text.TitleL}" Text="{Binding NewTimeText}" MinWidth="96" TextAlignment="Center" VerticalAlignment="Center" />
+                    <ui:IconButton Icon="remove" Size="32" Variant="Tonal" Command="{Binding ShiftMinuteCommand}" CommandParameter="-5" ToolTip="-5 min" />
+                    <ui:IconButton Icon="add" Size="32" Variant="Tonal" Command="{Binding ShiftMinuteCommand}" CommandParameter="5" Margin="4,0,0,0" ToolTip="+5 min" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="6" Style="{DynamicResource Text.Label}" Text="{DynamicResource today.event.duration}" VerticalAlignment="Center" />
+                <DockPanel Grid.Row="6" Grid.Column="2">
+                    <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding Swatches}" Visibility="{Binding IsLocalTarget, Converter={conv:BoolToVisibility}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ToggleButton Style="{StaticResource Today.Swatch}" IsChecked="{Binding IsSelected, Mode=OneWay}" CommandParameter="{Binding}"
+                                              Command="{Binding DataContext.SelectSwatchCommand, ElementName=Root}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ItemsControl ItemsSource="{Binding Durations}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ToggleButton Style="{DynamicResource FilterChip}" Content="{Binding Label}" Margin="0,0,6,0"
+                                              IsChecked="{Binding IsSelected, Mode=OneWay}" CommandParameter="{Binding}"
+                                              Command="{Binding DataContext.SelectDurationCommand, ElementName=Root}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DockPanel>
+
+                <TextBlock Grid.Row="8" Style="{DynamicResource Text.Label}" Text="{DynamicResource today.event.calendar}" VerticalAlignment="Center"
+                           Visibility="{Binding HasTargets, Converter={conv:BoolToVisibility}}" />
+                <ItemsControl Grid.Row="8" Grid.Column="2" ItemsSource="{Binding Targets}" Focusable="False"
+                              Visibility="{Binding HasTargets, Converter={conv:BoolToVisibility}}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ToggleButton Style="{DynamicResource FilterChip}" Margin="0,0,6,4" MaxWidth="220"
+                                          IsChecked="{Binding IsSelected, Mode=OneWay}" CommandParameter="{Binding}"
+                                          Command="{Binding DataContext.SelectTargetCommand, ElementName=Root}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="10" Height="10" Fill="{Binding Brush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ToggleButton>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Grid.Row="10" Grid.ColumnSpan="3" Style="{DynamicResource Text.BodyS}" Foreground="{DynamicResource Brush.Error}"
+                           Text="{Binding EventSaveError}" VerticalAlignment="Center" HorizontalAlignment="Left" TextWrapping="Wrap" MaxWidth="360"
+                           Visibility="{Binding EventSaveError, Converter={conv:NullToVisibility}}" />
+                <StackPanel Grid.Row="10" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <ui:M3Button Variant="Text" Content="{DynamicResource common.cancel}" Command="{Binding CancelEventCommand}" />
+                    <ui:M3Button Variant="Filled" Icon="check" Content="{DynamicResource common.save}" Command="{Binding SaveEventCommand}" Margin="8,0,0,0" />
+                </StackPanel>
+            </Grid>
+        </ui:SheetHost.SheetContent>
+    </ui:SheetHost>
+</UserControl>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Example "assembly" mod for NotchHub: a 25/5 Pomodoro timer (tab + quick-settings tile + HUD).
+    Build:   dotnet build mods/examples/Pomodoro/Pomodoro.csproj
+             (inside the NotchHub repo you can add  no-dependencies + no-restore  flags once NotchHub.UI is built)
+    Install: copy bin/Debug/net10.0-windows10.0.22621.0/{Pomodoro.dll, mod.json} to %APPDATA%\NotchHub\mods\pomodoro\
+             and restart NotchHub.
+    Inside the repo it references the NotchHub projects; for a standalone mod use templates/NotchHub.ModTemplate (HintPath).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Pomodoro</RootNamespace>
+    <AssemblyName>Pomodoro</AssemblyName>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <!-- the app already has NotchHub.* and CommunityToolkit loaded: do not copy them next to the mod -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\NotchHub.Core\NotchHub.Core.csproj" Private="false" />
+    <ProjectReference Include="..\..\..\src\NotchHub.UI\NotchHub.UI.csproj" Private="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="mod.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

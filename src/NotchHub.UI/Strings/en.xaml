@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!-- Shared strings, keys prefixed with "common." -->
+    <sys:String x:Key="common.on">On</sys:String>
+    <sys:String x:Key="common.off">Off</sys:String>
+    <sys:String x:Key="common.ok">OK</sys:String>
+    <sys:String x:Key="common.cancel">Cancel</sys:String>
+    <sys:String x:Key="common.close">Close</sys:String>
+    <sys:String x:Key="common.save">Save</sys:String>
+    <sys:String x:Key="common.delete">Delete</sys:String>
+    <sys:String x:Key="common.clear">Clear</sys:String>
+    <sys:String x:Key="common.retry">Retry</sys:String>
+    <sys:String x:Key="common.settings">Settings</sys:String>
+    <sys:String x:Key="common.loading">Loading…</sys:String>
+    <sys:String x:Key="common.unavailable">Unavailable</sys:String>
+    <sys:String x:Key="common.now">now</sys:String>
+    <sys:String x:Key="common.minutesAgo">{0}m ago</sys:String>
+    <sys:String x:Key="common.hoursAgo">{0}h ago</sys:String>
+    <sys:String x:Key="common.daysAgo">{0}d ago</sys:String>
+    <sys:String x:Key="common.today">Today</sys:String>
+    <sys:String x:Key="common.yesterday">Yesterday</sys:String>
+    <sys:String x:Key="common.older">Older</sys:String>
+</ResourceDictionary>
