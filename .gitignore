@@ -13,3 +13,6 @@ tools/fonts/*-VF.ttf
 
 # screenshots of another product used only as a local design reference
 docs/reference/
+
+# local build secrets (built-in OAuth clients)
+secrets.props

@@ -6,4 +6,10 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
   </ItemGroup>
+  <!-- Built-in OAuth clients (see BuiltInClients.cs): values come from the git-ignored secrets.props or environment variables -->
+  <Import Project="..\..\secrets.props" Condition="Exists('..\..\secrets.props')" />
+  <ItemGroup>
+    <AssemblyMetadata Include="NotchHub.GoogleClientId" Value="$(NotchHubGoogleClientId)" Condition="'$(NotchHubGoogleClientId)' != ''" />
+    <AssemblyMetadata Include="NotchHub.GoogleClientSecret" Value="$(NotchHubGoogleClientSecret)" Condition="'$(NotchHubGoogleClientSecret)' != ''" />
+  </ItemGroup>
 </Project>

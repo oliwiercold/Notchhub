@@ -3,32 +3,21 @@
 Owner feedback is collected here so every work session (and the daily build job) knows what is next.
 Status: ✅ done · 🔧 in progress · ⏳ planned · 🕓 at the very end (after the testing phase)
 
-## In progress (wave 6, 2026-10-13)
-- 🔧 Motion engine: Legacy / Refreshed / Smooth (motion blur, high refresh), interruptible physics springs (docs/MOTION.md)
-- 🔧 Tab indicator overlap (right side too wide), Power tab bottom gap, reply text field caret/text offset
-- 🔧 Meeting bar in the idle notch (countdown to start / end, all calendars, settings), notch widens for long titles
-- 🔧 Peek: glance card next to the mini player (setting, default on)
-- 🔧 Reserve screen space: third mode "Dynamic" (follows what the idle notch shows)
-- 🔧 Phone: call status (telephony), mute ringer, charging HUD, OTP one-click copy, swipe-to-dismiss notifications, battery-unknown state
-- 🔧 Wi-Fi: connect to saved networks, password prompt for new ones
-- 🔧 Today: click a day → list of all its events
-- 🔧 Timer: long, soft melody instead of a short beep
-- 🔧 Mods: examples (NBP rates, script widget, Pomodoro), templates, docs/MODDING.md, settings section, tiles row
-- 🔧 Media card: shuffle / repeat buttons
+## Done (2026-10-13/14)
+- ✅ Motion engine Legacy / Refreshed / Smooth, meeting bar, peek glance+media, phone calls/OTP/charging/swipe, Wi-Fi password connect,
+  calendar day list, timer melody, mods (examples, templates, docs), Spotify like/shuffle (Web API, max 5 users - Spotify policy),
+  GitHub Pages website (https://oliwiercold.github.io/Notchhub/) + recording guide, notch-style installer + release script,
+  About + Buy Me a Coffee card, Apache-2.0, 26 review fixes, idle RAM reduction (tab release + aggressive trim)
 
-## Planned
-- ⏳ Spotify: "add to library" (like) and Smart Shuffle — needs the Spotify Web API (user's own client id, PKCE); Smart Shuffle is not exposed by
-  Spotify's public API (investigate), plain shuffle works through Windows media controls
-- ⏳ GitHub Pages website (`website/`): black-orange, cozy, Google fonts, smooth transitions, video slots, download button that optionally asks for
-  Buy Me a Coffee first, FAQ below the download section
-- ⏳ Recording guide for the website videos (OpenScreen: what to show, click-by-click)
-- ⏳ Daily test build + changelog at 21:00 (scheduled task `notchhub-daily-build`)
-
-## Final stage (started 2026-10-13 evening)
-- 🔧 Notch-style installer (owner's choice) with the most important settings as options + uninstaller, release script, GitHub release workflow
-- 🔧 "O aplikacji" + Buy Me a Coffee card at the bottom of Settings
-- 🔧 Multi-area bug review + fixes
-- ✅ License: Apache-2.0 (LICENSE, NOTICE); reference screenshots of the other app are no longer tracked by git
+## Open
+- ⏳ Google one-click sign-in: owner creates the Google Cloud project (docs/GOOGLE-SETUP.md) and sends client id + secret → fill
+  src/NotchHub.Core/BuiltInClients.cs; then verification (Search Console file in a `oliwiercold.github.io` repo, demo video, form)
+- ⏳ First GitHub release (v1.0.0) once the owner says the build is ready - the website download button uses the latest release
+- ⏳ IPhoneService actions should return Task<bool> (UI shows real success/failure for ring/ping/reply/send clipboard)
+- ⏳ Power / Settings view models subscribe to app-lifetime events in constructors → move to OnShown/OnHidden so they can be released too
+- ⏳ PC clipboard changes → tell PhoneService (closes the stale phone-clipboard gap fully)
+- ⏳ docs/MODDING.md: document the restricted widget XAML (no ObjectDataProvider / event handlers / foreign types)
+- ⏳ Pomodoro example mod: harness check "running" fails (timing/format)
 
 ## At the very end (after the testing phase)
 - 🕓 "Buy me a coffee" button at the bottom of Settings with the text: "Podoba Ci się ten projekt i chciałbyś wesprzeć jego rozwój? Wesprzyj go na

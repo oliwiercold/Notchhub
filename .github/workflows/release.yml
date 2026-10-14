@@ -31,6 +31,10 @@ jobs:
 
       - name: Build release artifacts
         shell: pwsh
+        env:
+          # built-in Google sign-in (repository secrets; never stored in the source)
+          NotchHubGoogleClientId: ${{ secrets.NOTCHHUB_GOOGLE_CLIENT_ID }}
+          NotchHubGoogleClientSecret: ${{ secrets.NOTCHHUB_GOOGLE_CLIENT_SECRET }}
         run: ./tools/build-release.ps1
 
       - name: Upload build artifacts
